@@ -13,7 +13,7 @@ function setupWebGL(canvas) {
 var gl
 var points = []
 var index = 0
-var max_verts = 64
+var max_verts = 512
 var canvas
 var clearColor = [0.3921, 0.5843, 0.9294, 1.0]
 var markerColor = [1.0, 1.0, 1.0, 1.0]
@@ -134,8 +134,6 @@ window.onload = function init() {
         function() {
             index = 0
             gl.clearColor(...clearColor)
-            gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten([]))
         }
     )
 

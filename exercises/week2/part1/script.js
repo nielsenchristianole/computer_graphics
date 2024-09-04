@@ -13,7 +13,7 @@ function setupWebGL(canvas) {
 var gl
 var points = []
 var index = 0
-var max_verts = 64
+var max_verts = 512
 var canvas
 
 
