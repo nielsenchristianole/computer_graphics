@@ -12,8 +12,6 @@ function setupWebGL(canvas) {
 /** @type {WebGLRenderingContext} */
 var gl
 var canvas
-var vBuffer
-var cBuffer
 
 var circleResolution = 128
 var maxCircleVerts = 128 * circleResolution
@@ -28,7 +26,7 @@ var pointsIndex = 0
 var trianglesIndex = 0
 var triangleBufferIndex = 0 // where to store intermediate points for triangles
 var circleIndex = 0
-var circleBuffer = null // where to store intermediate points for circles
+var circleBuffer = null // where to store intermediate point for circles
 
 
 window.onload = function init() {
@@ -38,18 +36,17 @@ window.onload = function init() {
     gl = WebGLUtils.setupWebGL(canvas)
     if (!gl) { alert("WebGL isn't available") }
 
-
     var points = [
         vec2(-0.5, -0.5),
         vec2(0, 0),
         vec2(0.5, 0.5),
     ]
 
-    // Configure WebGL
+    // configure WebGL
     gl.viewport(0, 0, canvas.width, canvas.height)
     gl.clearColor(...clearColor)
 
-    // Load shaders and initialize attribute buffers
+    // load shaders
     var program = initShaders(gl, "vertex-shader", "fragment-shader")
     gl.useProgram(program)
     var maxVerts = maxPointVerts + maxTriangleVerts + maxCircleVerts
@@ -84,12 +81,6 @@ window.onload = function init() {
     canvas.addEventListener(
         "click",
         function() {
-
-            // where the user clicked (point center)
-            var c = vec2(
-                -1 + 2 * event.clientX / canvas.width,
-                -1 + 2 * (canvas.height - event.clientY) / canvas.height
-            )
             
             // where to add the point
             var rectangle = event.target.getBoundingClientRect()
@@ -107,12 +98,14 @@ window.onload = function init() {
                     pointsIndex++
                     console.log("Adding point at", t)
                     break
+
                 case "triangle":
                     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
                     gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * (maxPointVerts + trianglesIndex + triangleBufferIndex), flatten(t))
                     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
                     gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * (maxPointVerts + trianglesIndex + triangleBufferIndex), flatten([vec4(...markerColor)]))
                     triangleBufferIndex++
+
                     if (triangleBufferIndex >= 3) {
                         trianglesIndex += 3
                         triangleBufferIndex = 0
@@ -121,6 +114,7 @@ window.onload = function init() {
                         console.log("Adding triangle point at", t)
                     }
                     break
+
                 case "circle":
                     if (circleBuffer === null) {
                         console.log("Adding circlecenter at", t)
