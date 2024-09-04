@@ -1,0 +1,58 @@
+<html>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        attribute vec4 vColor;
+        varying vec4 fColor;
+        void main() {
+            gl_Position = vPosition;
+            gl_PointSize = 20.0;
+            fColor = vColor;
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        varying vec4 fColor;
+        void main() {
+            gl_FragColor = fColor;
+        }
+    </script>
+
+    <script type="text/javascript" src="../../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../../Common/MV.js"></script>
+    <script type="text/javascript" src="script.js"></script>
+    
+    <body>
+        <div>
+            <button id="AddPointsButton">add points</button>
+            <button id="AddTriangleButton">add triangle</button>
+        </div>
+        <canvas id="gl-canvas" width="512" height="512">
+            <!-- The following message is displayed if the browser doesn't
+            -- support HTML5 -->
+            Sorry; your web browser does not support HTML5's canvas element.
+        </canvas>
+        <button id="ClearButton">Clear</button>
+        <div>
+            Select bg color<br>
+            <select id="ClearColorMenu" size="4">
+                <option value="0">CornflowerBlue</option>
+                <option value="1">Black</option>
+                <option value="2">DarkGrey</option>
+                <option value="3">Magenta</option>
+            </select>
+        </div>
+        <div>
+            Select marker color<br>
+            <select id="MarkerColorMenu" size="4">
+                <option value="0">White</option>
+                <option value="1">Red</option>
+                <option value="2">Green</option>
+                <option value="3">Blue</option>
+            </select>
+        </div>
+    </body>
+
+</html>
