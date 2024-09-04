@@ -15,6 +15,8 @@ var canvas
 var vBuffer
 var cBuffer
 
+var circleResolution = 128
+var maxCircleVerts = 128 * circleResolution
 var maxPointVerts = 512
 var maxTriangleVerts = 512
 
@@ -23,10 +25,10 @@ var markerColor = [1.0, 1.0, 1.0, 1.0]
 var addMode = "points" // points, triangle, or circle
 
 var pointsIndex = 0
-var points = []
 var trianglesIndex = 0
-var triangles = []
 var triangleBufferIndex = 0 // where to store intermediate points for triangles
+var circleIndex = 0
+var circleBuffer = null // where to store intermediate points for circles
 
 
 window.onload = function init() {
@@ -37,7 +39,7 @@ window.onload = function init() {
     if (!gl) { alert("WebGL isn't available") }
 
 
-    points = [
+    var points = [
         vec2(-0.5, -0.5),
         vec2(0, 0),
         vec2(0.5, 0.5),
@@ -50,7 +52,7 @@ window.onload = function init() {
     // Load shaders and initialize attribute buffers
     var program = initShaders(gl, "vertex-shader", "fragment-shader")
     gl.useProgram(program)
-    var maxVerts = maxPointVerts + maxTriangleVerts
+    var maxVerts = maxPointVerts + maxTriangleVerts + maxCircleVerts
 
     // points to gpu
     var vBuffer = gl.createBuffer()
@@ -119,6 +121,33 @@ window.onload = function init() {
                         console.log("Adding triangle point at", t)
                     }
                     break
+                case "circle":
+                    if (circleBuffer === null) {
+                        console.log("Adding circlecenter at", t)
+                        circleBuffer = t
+                        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+                        gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * (maxPointVerts + maxTriangleVerts + circleIndex), flatten(t))
+                        gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
+                        gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * (maxPointVerts + maxTriangleVerts + circleIndex), flatten([vec4(...markerColor)]))
+                    } else {
+                        console.log("Adding circle")
+                        var radius = length(subtract(t, circleBuffer))
+                        var circle_perf = []
+                        for (let i = 0; i < circleResolution - 2; i++) {
+                            var angle = 2 * Math.PI * i / (circleResolution - 2)
+                            circle_perf.push(add(circleBuffer, scale(radius, vec2(Math.cos(angle), Math.sin(angle)))))
+                        }
+                        circle_perf.push(circle_perf[0])
+
+                        gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+                        gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * (maxPointVerts + maxTriangleVerts + circleIndex + 1), flatten(circle_perf))
+                        gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
+                        gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * (maxPointVerts + maxTriangleVerts + circleIndex + 1), flatten(Array(circle_perf.length).fill(vec4(...markerColor))))
+                        circleIndex += circle_perf.length + 1
+                        circleBuffer = null
+                        console.log("Circle added with num points ", circle_perf.length, circleIndex)
+                    }
+                    break
             }
         }
     )
@@ -174,6 +203,8 @@ window.onload = function init() {
             pointsIndex = 0
             trianglesIndex = 0
             triangleBufferIndex = 0
+            circleIndex = 0
+            circleBuffer = null
             gl.clearColor(...clearColor)
         }
     )
@@ -183,6 +214,7 @@ window.onload = function init() {
         "click",
         function() {
             addMode = "points"
+            console.log("Switched to points mode")
         }
     )
 
@@ -191,6 +223,16 @@ window.onload = function init() {
         "click",
         function() {
             addMode = "triangle"
+            console.log("Switched to triangle mode")
+        }
+    )
+
+    // Add circle button
+    document.getElementById("AddCircleButton").addEventListener(
+        "click",
+        function() {
+            addMode = "circle"
+            console.log("Switched to circle mode")
         }
     )
 
@@ -208,6 +250,12 @@ function render() {
     }
     if (triangleBufferIndex > 0) {
         gl.drawArrays(gl.POINTS, maxPointVerts + trianglesIndex, triangleBufferIndex)
+    }
+    for (let i = 0; i < circleIndex; i += circleResolution) {
+        gl.drawArrays(gl.TRIANGLE_FAN, maxPointVerts + maxTriangleVerts + i, circleResolution)
+    }
+    if (circleBuffer !== null) {
+        gl.drawArrays(gl.POINTS, maxPointVerts + maxTriangleVerts + circleIndex, 1)
     }
 
     requestAnimationFrame(render, canvas)
