@@ -42,7 +42,7 @@ window.onload = function init() {
     // Load the data into the GPU
     var vBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, max_verts*sizeof['vec2'], gl.STATIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER, max_verts * sizeof['vec2'], gl.STATIC_DRAW)
 
     // Associate out shader variables with our data buffer
     var vPosition = gl.getAttribLocation(program, "vPosition")
@@ -50,7 +50,7 @@ window.onload = function init() {
     gl.enableVertexAttribArray(vPosition)
 
     // Add first 3 points
-    gl.bufferSubData(gl.ARRAY_BUFFER, points.length * sizeof['vec2'] * index, flatten(points))
+    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * index, flatten(points))
     index += points.length
 
     // Callbacks

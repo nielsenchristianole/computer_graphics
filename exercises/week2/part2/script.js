@@ -62,9 +62,9 @@ window.onload = function init() {
 
     // Add first 3 points
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-    gl.bufferSubData(gl.ARRAY_BUFFER, points.length * sizeof['vec2'] * index, flatten(points))
+    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * index, flatten(points))
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
-    gl.bufferSubData(gl.ARRAY_BUFFER, points.length * sizeof['vec4'] * index, flatten(Array(points.length).fill(vec4(...markerColor))))
+    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * index, flatten(Array(points.length).fill(vec4(...markerColor))))
     index += points.length
 
     // Callbacks
