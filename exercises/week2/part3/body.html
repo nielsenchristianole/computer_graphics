@@ -1,4 +1,5 @@
 <html>
+
     <script id="vertex-shader" type="x-shader/x-vertex">
         attribute vec4 vPosition;
         attribute vec4 vColor;
@@ -9,6 +10,7 @@
             fColor = vColor;
         }
     </script>
+
     <script id="fragment-shader" type="x-shader/x-fragment">
         precision mediump float;
         varying vec4 fColor;
@@ -23,6 +25,10 @@
     <script type="text/javascript" src="script.js"></script>
     
     <body>
+        <div>
+            <button id="AddPointsButton">add points</button>
+            <button id="AddTriangleButton">add triangle</button>
+        </div>
         <canvas id="gl-canvas" width="512" height="512">
             <!-- The following message is displayed if the browser doesn't
             -- support HTML5 -->
@@ -48,4 +54,5 @@
             </select>
         </div>
     </body>
+
 </html>

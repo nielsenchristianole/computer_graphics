@@ -11,12 +11,23 @@ function setupWebGL(canvas) {
 
 /** @type {WebGLRenderingContext} */
 var gl
-var points = []
-var index = 0
-var max_verts = 64
 var canvas
+var vBuffer
+var cBuffer
+
+var maxPointVerts = 512
+var maxTriangleVerts = 512
+
 var clearColor = [0.3921, 0.5843, 0.9294, 1.0]
 var markerColor = [1.0, 1.0, 1.0, 1.0]
+var addMode = "points" // points, triangle, or circle
+
+var pointsIndex = 0
+var points = []
+var trianglesIndex = 0
+var triangles = []
+var triangleBufferIndex = 0 // where to store intermediate points for triangles
+
 
 window.onload = function init() {
 
@@ -39,48 +50,76 @@ window.onload = function init() {
     // Load shaders and initialize attribute buffers
     var program = initShaders(gl, "vertex-shader", "fragment-shader")
     gl.useProgram(program)
+    var maxVerts = maxPointVerts + maxTriangleVerts
 
-    // Load the data into the GPU
+    // points to gpu
     var vBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, max_verts*sizeof['vec2'], gl.STATIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER, maxVerts * sizeof['vec2'], gl.STATIC_DRAW)
 
-    // Associate out shader variables with our data buffer
     var vPosition = gl.getAttribLocation(program, "vPosition")
     gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vPosition)
 
-    // Load the data into the GPU
+    // colors to gpu
     var cBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, max_verts*sizeof['vec4'], gl.STATIC_DRAW)
+    gl.bufferData(gl.ARRAY_BUFFER, maxVerts * sizeof['vec4'], gl.STATIC_DRAW)
 
-    // Associate out shader variables with our data buffer
     var vColor = gl.getAttribLocation(program, "vColor")
     gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vColor)
 
     // Add first 3 points
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-    gl.bufferSubData(gl.ARRAY_BUFFER, points.length * sizeof['vec2'] * index, flatten(points))
+    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * pointsIndex, flatten(points))
     gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
-    gl.bufferSubData(gl.ARRAY_BUFFER, points.length * sizeof['vec4'] * index, flatten(Array(points.length).fill(vec4(...markerColor))))
-    index += points.length
+    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * pointsIndex, flatten(Array(points.length).fill(vec4(...markerColor))))
+    pointsIndex += points.length
+
 
     // Callbacks
     canvas.addEventListener(
         "click",
         function() {
+
+            // where the user clicked (point center)
+            var c = vec2(
+                -1 + 2 * event.clientX / canvas.width,
+                -1 + 2 * (canvas.height - event.clientY) / canvas.height
+            )
+            
+            // where to add the point
             var rectangle = event.target.getBoundingClientRect()
             var t = vec2(
                 -1 + 2 * (event.clientX - rectangle.left) / canvas.width,
                 -1 + 2 * (canvas.height - event.clientY + rectangle.top) / canvas.height
             )
-            gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-            gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * index, flatten(t))
-            gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
-            gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * index, flatten([vec4(...markerColor)]))
-            index++
+
+            switch (addMode) {
+                case "points":
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+                    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * pointsIndex, flatten(t))
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
+                    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * pointsIndex, flatten([vec4(...markerColor)]))
+                    pointsIndex++
+                    console.log("Adding point at", t)
+                    break
+                case "triangle":
+                    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+                    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec2'] * (maxPointVerts + trianglesIndex + triangleBufferIndex), flatten(t))
+                    gl.bindBuffer(gl.ARRAY_BUFFER, cBuffer)
+                    gl.bufferSubData(gl.ARRAY_BUFFER, sizeof['vec4'] * (maxPointVerts + trianglesIndex + triangleBufferIndex), flatten([vec4(...markerColor)]))
+                    triangleBufferIndex++
+                    if (triangleBufferIndex >= 3) {
+                        trianglesIndex += 3
+                        triangleBufferIndex = 0
+                        console.log("Adding triangle")
+                    } else {
+                        console.log("Adding triangle point at", t)
+                    }
+                    break
+            }
         }
     )
 
@@ -132,10 +171,26 @@ window.onload = function init() {
     document.getElementById("ClearButton").addEventListener(
         "click",
         function() {
-            index = 0
+            pointsIndex = 0
+            trianglesIndex = 0
+            triangleBufferIndex = 0
             gl.clearColor(...clearColor)
-            gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
-            gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten([]))
+        }
+    )
+
+    // Add points button
+    document.getElementById("AddPointsButton").addEventListener(
+        "click",
+        function() {
+            addMode = "points"
+        }
+    )
+
+    // Add triangle button
+    document.getElementById("AddTriangleButton").addEventListener(
+        "click",
+        function() {
+            addMode = "triangle"
         }
     )
 
@@ -145,7 +200,15 @@ window.onload = function init() {
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT)
-    gl.drawArrays(gl.POINTS, 0, index)
+    if (pointsIndex > 0) {
+        gl.drawArrays(gl.POINTS, 0, pointsIndex)
+    }
+    if (trianglesIndex > 0) {
+        gl.drawArrays(gl.TRIANGLES, maxPointVerts, trianglesIndex)
+    }
+    if (triangleBufferIndex > 0) {
+        gl.drawArrays(gl.POINTS, maxPointVerts + trianglesIndex, triangleBufferIndex)
+    }
 
     requestAnimationFrame(render, canvas)
 }
