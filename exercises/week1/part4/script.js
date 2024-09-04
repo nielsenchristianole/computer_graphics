@@ -1,24 +1,32 @@
 "use strict";
 
+/**
+ * @param {Element} canvas. The canvas element to create a context from.
+ * @return {WebGLRenderingContext} The created context.
+ */
+function setupWebGL(canvas) {
+    return WebGLUtils.setupWebGL(canvas)
+}
+
+
 var gl;
 var points;
+var angle = 0.0;
+var angleLoc;
 
 window.onload = function init()
 {
     var canvas = document.getElementById( "gl-canvas" );
 
-    gl = WebGLUtils.setupWebGL( canvas );
+    gl = setupWebGL( canvas );
     if ( !gl ) { alert( "WebGL isn't available" ); }
 
     var l = Math.sqrt(2) / 2;
     points = [
-        vec2( 0, l ),
-        vec2( -l, 0 ),
-        vec2( 0, -l ),
-
-        vec2( 0, l ),
-        vec2( 0, -l ),
-        vec2( l, 0 ),
+        vec2( -l,  0 ),
+        vec2(  0,  l ),
+        vec2(  0, -l ),
+        vec2(  l,  0 ),
     ];
 
     //
@@ -44,11 +52,17 @@ window.onload = function init()
     gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
     gl.enableVertexAttribArray( vPosition );
 
+    angleLoc = gl.getUniformLocation(program, "angle");
+
     render();
 };
 
 
 function render() {
     gl.clear( gl.COLOR_BUFFER_BIT );
-    gl.drawArrays( gl.TRIANGLES, 0, points.length );
+    angle += 0.05;
+    gl.uniform1f(angleLoc, angle);
+    gl.drawArrays( gl.TRIANGLE_STRIP, 0, points.length );
+
+    requestAnimationFrame(render);
 }

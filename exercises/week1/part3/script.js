@@ -11,21 +11,16 @@ window.onload = function init()
     gl = WebGLUtils.setupWebGL( canvas );
     if ( !gl ) { alert( "WebGL isn't available" ); }
 
-    points = [];
-    colors = [];
-
-    for ( var i = 0; i < canvas.width / 2; ++i ) {
-        var height = Math.floor(canvas.height / canvas.width * i);
-        for ( var j = 0; j < height; ++j ) {
-            var x = 2 * i / canvas.width;
-            var y = 2 * j / canvas.height;
-            points.push( vec2( x, y ) );
-            var r = 1 - x;
-            var b = y;
-            var g = 1 - r - b;
-            colors.push( vec4(r, g, b, 1.0 ) );
-        }
-    }
+    points = [
+        vec2( 0.0, 0.0 ),
+        vec2( 1.0, 1.0 ),
+        vec2( 1.0, 0.0 ),
+    ];
+    colors = [
+        vec4( 1.0, 0.0, 0.0, 1.0 ),
+        vec4( 0.0, 0.0, 1.0, 1.0 ),
+        vec4( 0.0, 1.0, 0.0, 1.0 ),
+    ];
 
 
     //
@@ -67,5 +62,5 @@ window.onload = function init()
 
 function render() {
     gl.clear( gl.COLOR_BUFFER_BIT );
-    gl.drawArrays( gl.POINTS, 0, points.length );
+    gl.drawArrays( gl.TRIANGLES, 0, points.length );
 }

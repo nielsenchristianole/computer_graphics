@@ -1,14 +1,28 @@
 "use strict";
 
+
+/**
+ * @param {Element} canvas. The canvas element to create a context from.
+ * @return {WebGLRenderingContext} The created context.
+ */
+function setupWebGL(canvas) {
+    return WebGLUtils.setupWebGL(canvas)
+}
+
+
 var gl;
 var points;
+var heightLoc;
+var height = 1.0;
+
 var NumPoints = 100;
-var x = 0.5;
-var r = 0.5;
-var v = 0.5;
+var r = 0.5
+var v = 0;
 var g = -0.1;
-var elasticity = 0.9;
-var dt = 0.01;
+var elasticity = 0.8;
+var dt = 0.1;
+var deltaFloor = 0.01;
+
 
 window.onload = function init()
 {
@@ -23,15 +37,7 @@ window.onload = function init()
         var angle = 2 * Math.PI * i / NumPoints;
         var _x = Math.cos(angle) * r;
         var _y = Math.sin(angle) * r;
-        points.push( vec2( _x, _y - 1 + r + x) );
-    }
-
-    // do simulation
-    x += v * dt;
-    v += g * dt;
-    if (x < 0) {
-        x = 0;
-        v = -v * elasticity;
+        points.push( vec2( _x, _y - 1 + r) );
     }
 
     //
@@ -57,11 +63,28 @@ window.onload = function init()
     gl.vertexAttribPointer( vPosition, 2, gl.FLOAT, false, 0, 0 );
     gl.enableVertexAttribArray( vPosition );
 
+    heightLoc = gl.getUniformLocation(program, "height")
+
     render();
 };
 
 
 function render() {
     gl.clear( gl.COLOR_BUFFER_BIT );
+    // do simulation
+    height += v * dt;
+    v += g * dt;
+    if (height < 0) {
+        height = 0;
+        v = -v * elasticity - 0.01;
+    }
+    if (height <= deltaFloor && Math.abs(v) <= deltaFloor) {
+        height = 0.0;
+        v = 0.0;
+        g = 0.0;
+    }
+    gl.uniform1f(heightLoc, height)
     gl.drawArrays( gl.TRIANGLE_FAN, 0, points.length );
+
+    requestAnimationFrame(render);
 }
