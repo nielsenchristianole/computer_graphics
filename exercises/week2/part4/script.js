@@ -80,7 +80,7 @@ window.onload = function init() {
     // Callbacks
     canvas.addEventListener(
         "click",
-        function() {
+        function(event) {
             
             // where to add the point
             var rectangle = event.target.getBoundingClientRect()

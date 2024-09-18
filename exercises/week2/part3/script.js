@@ -81,7 +81,7 @@ window.onload = function init() {
     // Callbacks
     canvas.addEventListener(
         "click",
-        function() {
+        function(event) {
 
             // where the user clicked (point center)
             var c = vec2(

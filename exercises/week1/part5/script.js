@@ -13,11 +13,15 @@ function setupWebGL(canvas) {
 var gl;
 var points;
 var heightLoc;
-var height = 1.0;
+
+var init_height = 1.0;
+var init_v = 0;
+
+var _height = init_height;
+var _v = init_v;
 
 var NumPoints = 100;
 var r = 0.5
-var v = 0;
 var g = -0.1;
 var elasticity = 0.8;
 var dt = 0.1;
@@ -72,18 +76,17 @@ window.onload = function init()
 function render() {
     gl.clear( gl.COLOR_BUFFER_BIT );
     // do simulation
-    height += v * dt;
-    v += g * dt;
-    if (height < 0) {
-        height = 0;
-        v = -v * elasticity - 0.01;
+    _height += _v * dt;
+    _v += g * dt;
+    if (_height < 0) {
+        _height = 0;
+        _v = -_v * elasticity - 0.02;
     }
-    if (height <= deltaFloor && Math.abs(v) <= deltaFloor) {
-        height = 0.0;
-        v = 0.0;
-        g = 0.0;
+    if (_height <= deltaFloor && Math.abs(_v) <= deltaFloor) {
+        _height = init_height;
+        _v = init_v;
     }
-    gl.uniform1f(heightLoc, height)
+    gl.uniform1f(heightLoc, _height)
     gl.drawArrays( gl.TRIANGLE_FAN, 0, points.length );
 
     requestAnimationFrame(render);

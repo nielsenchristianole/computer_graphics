@@ -70,7 +70,7 @@ window.onload = function init() {
     // Callbacks
     canvas.addEventListener(
         "click",
-        function() {
+        function(event) {
             var rectangle = event.target.getBoundingClientRect()
             var t = vec2(
                 -1 + 2 * (event.clientX - rectangle.left) / canvas.width,

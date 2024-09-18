@@ -56,7 +56,7 @@ window.onload = function init() {
     // Callbacks
     canvas.addEventListener(
         "click",
-        function() {
+        function(event) {
             gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
             var rectangle = event.target.getBoundingClientRect()
             var t = vec2(
