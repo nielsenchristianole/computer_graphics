@@ -1,64 +1,20 @@
 <html>
 
-    For all three points I create the intrinsics of the camera, mat_in, using the perspective function with fovy=45 degrees and equal aspect ratio.
+    I used the same camera matrix consisting of a perspective(45.0, 1.0, 0.1, 100.0) and lookAt(vec3(0.5, 0.5, 8), vec3(0.5, 0.5, 0.0), vec3(0.0, 1.0, 0.0)) for all three boxes.
     <h3>
         One-point
     </h3>
-    Here I add the camera extrinsics to the camera matrix, mat_ex. I do this by placing the camera at the center of the cube and moving it away by 4.5 units along the z-axis. Lastly I move the object on the pixel plane by translating it to the left, mat_trans.
+    I did nothing, as looking at the cube drawn from origo already produces the one point view.
     <br>
-    output = mat_trans * mat_in * mat_ex * cube
 
     <h3>
         Two-point
     </h3>
-    Here I do the same as in the first case, except I place the camera to the side instead of the front and move the cube a little to the rigth in the pixel plane.
+    I translate the cube by two units along the x-axis.
 
     <h3>
         Three-point
     </h3>
-    Here I do the exact same again, except I palce the camera at the corner of the cube.
-
-    <h3>
-        Implementation
-    </h3>
-    <pre>
-        <code>
-// render
-gl.clear(gl.COLOR_BUFFER_BIT)
-var modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix")
-
-// see from the front
-modelViewMatrix = mult(
-    cameraMatrix,
-    lookAt(
-        vec3(0.5, 0.5, 5),
-        vec3(0.5, 0.5, 0.0),
-        vec3(0.0, 1.0, 0.0)))
-modelViewMatrix = mult(translate(-0.6, 0, 0), modelViewMatrix)
-gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-gl.drawElements(gl.LINES, wire_indices.length, gl.UNSIGNED_INT, 0)
-
-// from the side
-modelViewMatrix = mult(
-    cameraMatrix,
-    lookAt(
-        vec3(0.5, 5, 5),
-        vec3(0.5, 0, 0.0),
-        vec3(0.0, 1.0, 0.0)))
-modelViewMatrix = mult(translate(0.1, 0, 0), modelViewMatrix)
-gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
-gl.drawElements(gl.LINES, wire_indices.length, gl.UNSIGNED_INT, 0)
-
-// see from the corner
-modelViewMatrix = mult(
-    cameraMatrix,
-    lookAt(
-        vec3(5, 5, 5),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0)))
-modelViewMatrix = mult(translate(0.7, 0, 0), modelViewMatrix)
-gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix))
-gl.drawElements(gl.LINES, wire_indices.length, gl.UNSIGNED_INT, 0)
-        </code>
+    I translate the cube to have center in origo. Rotate it by 45 degrees around the x-axis. Move it back to origo and then translate it by negative two units along the x-axis.
 
 </html>

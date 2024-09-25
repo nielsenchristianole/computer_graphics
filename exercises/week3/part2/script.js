@@ -96,37 +96,35 @@ window.onload = function init() {
     // render
     gl.clear(gl.COLOR_BUFFER_BIT)
     var modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix")
-    
-    // see from the front
-    modelViewMatrix = mult(
+    cameraMatrix = mult(
         cameraMatrix,
         lookAt(
-            vec3(0.5, 0.5, 5),
+            vec3(0.5, 0.5, 8),
             vec3(0.5, 0.5, 0.0),
             vec3(0.0, 1.0, 0.0)))
-    modelViewMatrix = mult(translate(-0.6, 0, 0), modelViewMatrix)
+    
+    // see from the front
+    modelViewMatrix = cameraMatrix
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
     gl.drawElements(gl.LINES, wire_indices.length, gl.UNSIGNED_INT, 0)
 
     // from the side
     modelViewMatrix = mult(
         cameraMatrix,
-        lookAt(
-            vec3(0.5, 5, 5),
-            vec3(0.5, 0, 0.0),
-            vec3(0.0, 1.0, 0.0)))
-    modelViewMatrix = mult(translate(0.1, 0, 0), modelViewMatrix)
+        translate(2, 0, 0))
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
     gl.drawElements(gl.LINES, wire_indices.length, gl.UNSIGNED_INT, 0)
 
     // see from the corner
     modelViewMatrix = mult(
         cameraMatrix,
-        lookAt(
-            vec3(5, 5, 5),
-            vec3(0.0, 0.0, 0.0),
-            vec3(0.0, 1.0, 0.0)))
-    modelViewMatrix = mult(translate(0.7, 0, 0), modelViewMatrix)
+        translate(-1.5, 0.5, 0.5))
+    modelViewMatrix = mult(
+        modelViewMatrix,
+        rotateX(45))
+    modelViewMatrix = mult(
+        modelViewMatrix,
+        translate(-0.5, -0.5, -0.5))
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix))
     gl.drawElements(gl.LINES, wire_indices.length, gl.UNSIGNED_INT, 0)
 }
