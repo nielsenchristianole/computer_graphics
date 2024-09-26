@@ -19,6 +19,10 @@ var maxVerts = 2 ** 16
 var maxNumSubdivisions = 6
 var NumSubdivisions = 0
 
+var modelViewMatrixLoc
+var yRotation = 0
+var vertices = tetrahedron(NumSubdivisions, true)
+
 
 function mix(a, b) {
     return scale(0.5, add(a, b))
@@ -88,28 +92,23 @@ window.onload = function init() {
     var vBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, maxVerts * sizeof['vec4'], gl.STATIC_DRAW)
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertices))
 
     var vPosition = gl.getAttribLocation(program, "vPosition")
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vPosition)
 
-    // transformation matrix
-    var cameraMatrix = mult(
-        perspective(45.0, 1.0, 0.1, 100.0),
-        lookAt(
-            vec3(0.0, 0.0, 10),
-            vec3(0.0, 0.0, 0.0),
-            vec3(0.0, 1.0, 0.0)))
-    var modelViewMatrix = cameraMatrix
-    var modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix")
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix))
+    // get uniform location for modelViewMatrix
+    modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix")
 
     document.getElementById("IncrementButton").addEventListener(
         "click",
         function() {
             NumSubdivisions += 1
             NumSubdivisions = Math.min(maxNumSubdivisions, NumSubdivisions)
-            render()
+            vertices = tetrahedron(NumSubdivisions, true)
+            gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertices))
         }
     )
 
@@ -118,27 +117,39 @@ window.onload = function init() {
         function() {
             NumSubdivisions -= 1
             NumSubdivisions = Math.max(0, NumSubdivisions)
-            render()
+            vertices = tetrahedron(NumSubdivisions, true)
+            gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertices))
         }
     )
 
-
     // render
-    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
     render()
 }
 
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    yRotation += 1
+    yRotation %= 360
+
+    var cameraMatrix = mult(
+        perspective(45.0, 1.0, 0.1, 100.0),
+        lookAt(
+            vec3(0.0, 0.0, 10),
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.0, 1.0, 0.0)))
+    var modelViewMatrix = mult(
+        cameraMatrix,
+        rotateY(yRotation))
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix))
     
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.CULL_FACE)
 
-    var vertices = tetrahedron(NumSubdivisions, true)
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertices))
     gl.cullFace(gl.BACK)
 
     gl.drawArrays(gl.TRIANGLES, 0, vertices.length)
     document.getElementById('TUI').innerHTML = 'Using ' + NumSubdivisions + ' subdivisions'
+    requestAnimationFrame(render)
 }
