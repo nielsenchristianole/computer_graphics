@@ -130,19 +130,16 @@ window.onload = function init() {
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    yRotation += 1
-    yRotation %= 360
+    yRotation += 0.01
+    yRotation %= 2 * Math.PI
 
     var cameraMatrix = mult(
         perspective(45.0, 1.0, 0.1, 100.0),
         lookAt(
-            vec3(0.0, 0.0, 10),
+            vec3(10 * Math.sin(yRotation), 0.0, 10 * Math.cos(yRotation)),
             vec3(0.0, 0.0, 0.0),
             vec3(0.0, 1.0, 0.0)))
-    var modelViewMatrix = mult(
-        cameraMatrix,
-        rotateY(yRotation))
-    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix))
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(cameraMatrix))
     
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.CULL_FACE)
