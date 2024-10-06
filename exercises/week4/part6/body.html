@@ -1,0 +1,29 @@
+<html>
+
+a:<br>
+The phong lighting model is the physics behind the shading of objects using the summed color of the ambient, diffuse, and specular reflection contributions.
+
+The phong shading model is how it is implemented in the shader using the normals calculated at the vertices.
+
+b:<br>
+Flat shading is the simplest shading method, where the normal is calculated once for each vertex. This is computationally cheap, but the shading is not smooth.
+
+Gouraud shading is a shading method where the normal is calculated for each vertex and interpolated across the face of the object. This is more computationally expensive, but the shading is smoother. When This works well as long at the linear interpolation of the color is a good approximation, which isn't the case of specular highlights as this follows a exponential function.
+
+Phong shading interpolates the normals across the face of the object, and calculates the color for each pixel. This is the most computationally expensive, but the shading is the smoothest of the three.
+
+c:<br>
+The directional light is the same as point light in the limit as the distance to the light source goes towards infinity. This means that all the normals will be parallel in the directional lighting.
+
+d:<br>
+The eyes position affects where the specular highlights are.
+
+e:<br>
+Setting k_s to 0 will remove the specular highlights from the object, if alpha is set to 0 the specular highlight will be equivalent to ambient light as x**0=1.
+
+f:<br>
+The hight the shininess value, the smaller the specular highlight will be as the function is exponential and thus will approach zero more rapidly. This is only the case as the vectors are normalized before the dot product and relu activated, and thus the base in in the interval 0..1.
+
+g:<br>
+I computed the lighting in the world coordinates. I did this as I then just could use the vertex coordinates as the vertex normals. The tools we have for computing the model view matrix is also in world coordinates thus making the implementation simpler.
+</html>

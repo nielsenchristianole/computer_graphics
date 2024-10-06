@@ -21,7 +21,7 @@
 
 
             // surface normal
-            vec3 n = vPosition.xyz;
+            vec3 n = normalize(vPosition.xyz);
             
             // emitted TODO: i think this parameter is both the color and direction of the light
             vec3 L_e = rasterParam[0] * bodyColor;

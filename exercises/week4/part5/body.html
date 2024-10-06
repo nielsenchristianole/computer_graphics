@@ -2,27 +2,32 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
         attribute vec4 vPosition;
         uniform mat4 modelViewMatrix;
-        // L_d = L_s = L_e
-        // k_a = k_d
+        varying vec3 normalMap;
+        
+        void main() {
+            normalMap = vPosition.xyz;
+            gl_Position = modelViewMatrix * vPosition;
+        }
+        
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        
+        varying vec3 normalMap;
 
-        // L_e L_a k_d k_s s theta_y
         uniform float rasterParam[6];
         uniform vec3 omega_o; // the eye
         uniform vec3 bodyColor;
 
-        varying vec4 fColor;
-
-
         // where is the light emitted from
         vec3 l_i = vec3(1.0, 1.0, 1.0);
         bool useDirectionalLight = true;
-        
+
         void main() {
 
+            vec3 normal = normalize(normalMap);
 
-            // surface normal
-            vec3 n = vPosition.xyz;
-            
             // emitted TODO: i think this parameter is both the color and direction of the light
             vec3 L_e = rasterParam[0] * bodyColor;
 
@@ -30,36 +35,25 @@
             vec3 L_a = rasterParam[1] * L_e;
 
             // light direction
-            vec3 omega_i = normalize(useDirectionalLight ? l_i : l_i - vPosition.xyz);
+            vec3 omega_i = normalize(useDirectionalLight ? l_i : l_i - normal);
 
             // diffuse
-            float diff = max(dot(n, omega_i), 0.0);
+            float diff = max(dot(normal, omega_i), 0.0);
             vec3 L_d = rasterParam[2] * diff * L_e;
-    
+
             // halfway vector
             vec3 omega_h = normalize(omega_i + normalize(omega_o));
-            
+
             // specular
-            float spec = pow(max(dot(n, omega_h), 0.0), rasterParam[4]);
+            float spec = pow(max(dot(normal, omega_h), 0.0), rasterParam[4]);
             vec3 L_s = rasterParam[3] * spec * rasterParam[0] * vec3(1.0, 1.0, 1.0);
 
-            gl_Position = modelViewMatrix * vPosition;
-            
-            fColor.xyz = L_d + L_s + L_a;
-            fColor.x = max(fColor.x, 0.0);
-            fColor.y = max(fColor.y, 0.0);
-            fColor.z = max(fColor.z, 0.0);
-            fColor.w = 1.0;
-        }
-        
-    </script>
+            vec3 color = L_d + L_s + L_a;
+            color.x = max(color.x, 0.0);
+            color.y = max(color.y, 0.0);
+            color.z = max(color.z, 0.0);
+            gl_FragColor = vec4(color, 1.0);
 
-    <script id="fragment-shader" type="x-shader/x-fragment">
-        precision mediump float;
-        varying vec4 fColor;
-
-        void main() {
-            gl_FragColor = fColor;
         }
     </script>
 
