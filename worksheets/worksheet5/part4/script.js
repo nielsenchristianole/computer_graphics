@@ -48,7 +48,7 @@ window.onload = async function init() {
     gl.useProgram(program)
 
     // load the data object
-    drawingInfo = await readOBJFile('../suzanne.obj', 1.0, true)
+    drawingInfo = await readOBJFile('../suzanne_mohawk.obj', 1.0, true)
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer())
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(drawingInfo.indices), gl.STATIC_DRAW)
@@ -125,7 +125,8 @@ function render() {
     yRotation %= 2 * Math.PI
     
     // where we are looking from
-    var omega_o = vec3(10.0 * Math.sin(yRotation), 0.0, 10.0 * Math.cos(yRotation))
+    const distance = 4.0
+    var omega_o = vec3(distance * Math.sin(yRotation), 0.0, distance * Math.cos(yRotation))
     gl.uniform3fv(gl.getUniformLocation(program, "omega_o"), flatten(omega_o))
     
     // camera matrix
