@@ -33,8 +33,8 @@
             vec3 bodyColor = texture2D(
                 texMap, 
                 vec2(
-                    0.5 - atan(normal[2], normal[0]) / (2.0 * 3.14),
-                    0.5 - asin(normal[1]) / 3.14)).xyz;
+                    0.5 - atan(normal[2], normal[0]) / (2.0 * 3.1415926535),
+                    0.5 - asin(normal[1]) / 3.1415926535)).xyz;
 
             // emitted TODO: i think this parameter is both the color and direction of the light
             vec3 L_e = rasterParam[0] * bodyColor;
