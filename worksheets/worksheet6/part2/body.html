@@ -1,0 +1,148 @@
+<html>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        uniform mat4 modelViewMatrix;
+        varying vec3 normalMap;
+
+        attribute vec2 vTexCoord;
+        varying vec2 fTexCoord;
+        
+        void main() {
+            normalMap = vPosition.xyz;
+            gl_Position = modelViewMatrix * vPosition;
+            fTexCoord = vTexCoord;
+        }
+        
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        
+        varying vec3 normalMap;
+
+        uniform float rasterParam[6];
+        uniform vec3 omega_o; // the eye
+        uniform vec3 bodyColor;
+
+        uniform sampler2D texMap;
+        varying vec2 fTexCoord;
+
+        // where is the light emitted from
+        vec3 l_i = vec3(1.0, 1.0, 1.0);
+        bool useDirectionalLight = true;
+
+        void main() {
+
+            vec3 normal = normalize(normalMap);
+
+            // emitted TODO: i think this parameter is both the color and direction of the light
+            vec3 L_e = rasterParam[0] * bodyColor;
+
+            // ambient
+            vec3 L_a = rasterParam[1] * L_e;
+
+            // light direction
+            vec3 omega_i = normalize(useDirectionalLight ? l_i : l_i - normal);
+
+            // diffuse
+            float diff = max(dot(normal, omega_i), 0.0);
+            vec3 L_d = rasterParam[2] * diff * L_e;
+
+            // halfway vector
+            vec3 omega_h = normalize(omega_i + normalize(omega_o));
+
+            // specular
+            float spec = pow(max(dot(normal, omega_h), 0.0), rasterParam[4]);
+            vec3 L_s = rasterParam[3] * spec * rasterParam[0] * vec3(1.0, 1.0, 1.0);
+
+            vec3 color = L_d + L_s + L_a;
+            color.x = max(color.x, 0.0);
+            color.y = max(color.y, 0.0);
+            color.z = max(color.z, 0.0);
+            // gl_FragColor = vec4(color, 1.0);
+            gl_FragColor = texture2D(texMap, fTexCoord);
+
+        }
+    </script>
+
+    <script type="text/javascript" src="../../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../../Common/MV.js"></script>
+    <script type="text/javascript" src="script.js"></script>
+    
+    <body>
+        <canvas id="gl-canvas" width="512" height="512">
+            <!-- The following message is displayed if the browser doesn't
+            -- support HTML5 -->
+            Sorry; your web browser does not support HTML5's canvas element.
+        </canvas>
+    </body>
+    <div>
+        <label for="wrap-select">Wrapping mode:</label><br>
+        <select name="wrap" id="wrap-select">
+            <option value="repeat">repeat</option>
+            <option value="clamp-to-edge">clamp-to-edge</option>
+        </select>
+
+        <br><br>
+        
+        <label for="filtering-select">Filtering mode:</label><br>
+        <select name="filtering" id="filtering-select">
+            <option value="nearest">nearest</option>
+            <option value="linear">linear</option>
+            <option value="nearest mipmap nearest">nearest mipmap nearest</option>
+            <option value="linear mipmap nearest">linear mipmap nearest</option>
+            <option value="nearest mipmap linear">nearest mipmap linear</option>
+            <option value="linear mipmap linear">linear mipmap linear</option>
+        </select>
+    </div>
+    <!-- <div>
+        <div>Light is emitted from 1.0, 1.0, 1.0 using directional light.</div><br>
+        <button id="DecrementButton">decrease subdevision</button>
+        <button id="IncrementButton">increase subdevision</button>
+        <div id="TUI">Using 0 subdivisions</div>
+        <div><br></div>
+        
+        <div>
+            <div id="emittedDisplay">0.5</div>
+            <input type="range" id="emittedRange" min="0" max="1000" value="500" step="1"/>
+            <label>Emitted radiance (L_e)</label>
+        </div>
+        <div>
+            <div id="ambientDisplay">0.5</div>
+            <input type="range" id="ambientRange" min="0" max="1000" value="500" step="1" class="slider"/>
+            <label>Ambient radiance (L_a)</label>
+        </div>
+        <div>
+            <div id="diffuseDisplay">0.5</div>
+            <input type="range" id="diffuseRange" min="0" max="1000" value="500" step="1"/>
+            <label>Diffuse coefficient (k_d)</label>
+        </div>
+        <div>
+            <div id="specularDisplay">0.5</div>
+            <input type="range" id="specularRange" min="0" max="1000" value="500" step="1"/>
+            <label>Specular coefficient (k_s)</label>
+        </div>
+        <div>
+            <div id="shineDisplay">0.5</div>
+            <input type="range" id="shineRange" min="0" max="1000" value="500" step="1"/>
+            <label>Shininess (s)</label>
+        </div>
+        <div>
+            <div id="redDisplay">0.5</div>
+            <input type="range" id="redRange" min="0" max="1000" value="500" step="1"/>
+            <label>Body color (red)</label>
+        </div>
+        <div>
+            <div id="greenDisplay">0.5</div>
+            <input type="range" id="greenRange" min="0" max="1000" value="500" step="1"/>
+            <label>Body color (green)</label>
+        </div>
+        <div>
+            <div id="blueDisplay">0.5</div>
+            <input type="range" id="blueRange" min="0" max="1000" value="500" step="1"/>
+            <label>Body color (blue)</label>
+        </div>
+    </div> -->
+
+</html>
