@@ -25,6 +25,8 @@ var diffuseRange = [0.0, 0.0, 1.0]
 var specularRange = [0.0, 0.0, 1.0]
 var shineRange = [500.0, 0.0000000000001, 1000.0]
 
+const cubemapDir = '../cubemaps/house_cubemap/'
+
 
 window.onload = async function init() {
 
@@ -296,6 +298,30 @@ function tetrahedron(count, is_face=true) {
 
 
 async function load_texture(filename) {
+    var texture = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+
+    const pixel = new Uint8Array([255, 0, 255, 255])
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel)
+
+    var image = document.createElement('img')
+    image.crossorigin = 'anonymous'
+    image.onload = function () { 
+
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+        gl.generateMipmap(gl.TEXTURE_2D)
+
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+    }
+    image.src = filename
+}
+
+
+async function load_cubemap(filename) {
     var texture = gl.createTexture()
     gl.bindTexture(gl.TEXTURE_2D, texture)
 
