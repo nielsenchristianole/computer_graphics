@@ -15,13 +15,13 @@ var yRotation = 0
 var vertices = tetrahedron(NumSubdivisions, true)
 
 var wrappingMode = 'repeat'
-var filteringModeMag = 'nearest'
-var filteringModeMin = 'nearest'
+var filteringModeMag = 'linear'
+var filteringModeMin = 'nearest mipmap linear'
 
 // initial value, min, scale
 var emittedRange = [1.0, 0.0, 2.0]
-var ambientRange = [1.0, 0.0, 1.0]
-var diffuseRange = [0.0, 0.0, 1.0]
+var ambientRange = [0.5, 0.0, 1.0]
+var diffuseRange = [1.0, 0.0, 1.0]
 var specularRange = [0.0, 0.0, 1.0]
 var shineRange = [500.0, 0.0000000000001, 1000.0]
 
@@ -156,7 +156,7 @@ window.onload = async function init() {
 
 
 function render() {
-    yRotation += 0.03
+    yRotation += 0.01
     yRotation %= 2 * Math.PI
     const distance = 2.0
     

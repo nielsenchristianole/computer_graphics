@@ -69,6 +69,12 @@
     <script type="text/javascript" src="script.js"></script>
     
     <body>
+        I have chosen to use nearest mipmap linear, as this softens the transition between mipmaps without blurring the textures to much.
+    </body>
+
+    <br>
+
+    <body>
         <canvas id="gl-canvas" width="512" height="512">
             <!-- The following message is displayed if the browser doesn't
             -- support HTML5 -->
@@ -86,19 +92,19 @@
         
         <label for="filtering-select-mag">Filtering magnification mode:</label><br>
         <select name="filtering-mag" id="filtering-select-mag">
-            <option value="nearest">nearest</option>
             <option value="linear">linear</option>
+            <option value="nearest">nearest</option>
         </select>
 
         <br><br>
 
         <label for="filtering-select-min">Filtering minification mode:</label><br>
         <select name="filtering-min" id="filtering-select-min">
+            <option value="nearest mipmap linear">nearest mipmap linear</option>
             <option value="nearest">nearest</option>
             <option value="linear">linear</option>
             <option value="nearest mipmap nearest">nearest mipmap nearest</option>
             <option value="linear mipmap nearest">linear mipmap nearest</option>
-            <option value="nearest mipmap linear">nearest mipmap linear</option>
             <option value="linear mipmap linear">linear mipmap linear</option>
         </select>
     </div>
