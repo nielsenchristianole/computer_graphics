@@ -31,7 +31,8 @@ var vertices = [
     vec4(-4, -1, -21, 1)]
 
 var wrappingMode = 'repeat'
-var filteringMode = 'nearest'
+var filteringModeMag = 'nearest'
+var filteringModeMin = 'nearest'
 
 // initial value, min, scale
 var emittedRange = [1.0, 0.0, 2.0]
@@ -155,6 +156,7 @@ window.onload = function init() {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texSize, texSize, 0, gl.RGBA,
         gl.UNSIGNED_BYTE, myTexels)
+    gl.generateMipmap(gl.TEXTURE_2D)
 
 
     // texture ui
@@ -164,10 +166,15 @@ window.onload = function init() {
             wrappingMode = this.value
             render()})
 
-    document.getElementById("filtering-select").addEventListener(
+    document.getElementById("filtering-select-mag").addEventListener(
         "change",
         function() {
-            filteringMode = this.value
+            filteringModeMag = this.value
+            render()})
+    document.getElementById("filtering-select-min").addEventListener(
+        "change",
+        function() {
+            filteringModeMin = this.value
             render()})
 
     // UI update
@@ -314,30 +321,33 @@ function render() {
             break
     }
 
-    switch (filteringMode) {
+    switch (filteringModeMag) {
         case "nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
             break
         case "linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+            break
+    }
+
+    switch (filteringModeMin) {
+        case "nearest":
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+            break
+        case "linear":
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
             break
         case "nearest mipmap nearest":
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST_MIPMAP_NEAREST)
             break
         case "linear mipmap nearest":
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_NEAREST)
             break
         case "nearest mipmap linear":
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST_MIPMAP_LINEAR)
             break
         case "linear mipmap linear":
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR_MIPMAP_LINEAR)
             break
     }
 
