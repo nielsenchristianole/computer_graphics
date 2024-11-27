@@ -18,6 +18,9 @@
 
         uniform float rasterParam[6];
         uniform vec3 omega_o; // the eye
+        uniform mat4 modelTexMatrix;
+        uniform int isReflective;
+        uniform vec3 eye;
 
         uniform samplerCube texMap;
 
@@ -27,11 +30,14 @@
 
         void main() {
 
-            vec3 normal = normalize(normalMap);
-            
+            vec3 normal = isReflective == 1 ? normalize(normalMap) : normalMap;
+
+            vec4 normalHom = vec4(
+                isReflective == 1 ? reflect(normal - eye, normal) : normal,
+                1.0);
             vec3 bodyColor = textureCube(
                 texMap, 
-                normal).xyz;
+                (modelTexMatrix * normalHom).xyz).xyz;
 
             // emitted
             vec3 L_e = rasterParam[0] * bodyColor;

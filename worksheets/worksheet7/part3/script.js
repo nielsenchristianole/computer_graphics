@@ -3,10 +3,10 @@
 /** @type {WebGLRenderingContext} */
 var gl
 var canvas
+var program
 
 const clearColor = [0.3921, 0.5843, 0.9294, 1.0]
 
-var program
 const maxVerts = 800000
 const maxNumSubdivisions = 8
 var NumSubdivisions = 4
@@ -15,15 +15,34 @@ var yRotation = 0
 var vertices = tetrahedron(NumSubdivisions, true)
 
 var wrappingMode = 'repeat'
-var filteringModeMag = 'linear'
-var filteringModeMin = 'nearest mipmap linear'
+var filteringModeMag = 'nearest'
+var filteringModeMin = 'nearest'
 
 // initial value, min, scale
 var emittedRange = [1.0, 0.0, 2.0]
-var ambientRange = [0.5, 0.0, 1.0]
-var diffuseRange = [1.0, 0.0, 1.0]
+var ambientRange = [1.0, 0.0, 1.0]
+var diffuseRange = [0.0, 0.0, 1.0]
 var specularRange = [0.0, 0.0, 1.0]
 var shineRange = [500.0, 0.0000000000001, 1000.0]
+
+const cubemapDirs = [
+    '../cubemaps/autumn_cubemap/',
+    '../cubemaps/brightday2_cubemap/',
+    '../cubemaps/cloudyhills_cubemap/',
+    '../cubemaps/greenhill_cubemap/',
+    '../cubemaps/house_cubemap/',
+    '../cubemaps/terrain_cubemap/',
+]
+var cubemapIdx = 0
+var cubemapDir = cubemapDirs[cubemapIdx]
+var g_tex_ready = 0
+
+
+var iBuffer
+var vBuffer
+var quadVertexBuffer
+var quadIndexBuffer
+var vPosition
 
 
 window.onload = async function init() {
@@ -36,8 +55,6 @@ window.onload = async function init() {
     var ext = gl.getExtension('OES_element_index_uint')
     if (!ext) { alert("OES_element_index_uint is not supported by your browser") }
 
-    await load_texture('../earth.jpg')
-
     // configure WebGL
     gl.viewport(0, 0, canvas.width, canvas.height)
     gl.clearColor(...clearColor)
@@ -46,20 +63,44 @@ window.onload = async function init() {
     program = initShaders(gl, "vertex-shader", "fragment-shader")
     gl.useProgram(program)
 
+    await load_cubemap()
+
+    iBuffer = gl.createBuffer()
+    vBuffer = gl.createBuffer()
+    quadVertexBuffer = gl.createBuffer()
+    quadIndexBuffer = gl.createBuffer()
+    vPosition = gl.getAttribLocation(program, "vPosition")
+
     // indexes
-    var iBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuffer)
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(Array.from({ length: vertices.length }, (v, i) => i)), gl.STATIC_DRAW)
 
     // Create a buffer
-    var vBuffer = gl.createBuffer()
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, maxVerts * sizeof['vec4'], gl.STATIC_DRAW)
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, flatten(vertices))
 
-    var vPosition = gl.getAttribLocation(program, "vPosition")
-    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
-    gl.enableVertexAttribArray(vPosition)
+    // create the quad
+    var quadVertices = new Float32Array([
+        -1, -1, 0.999, 1,
+        1, -1, 0.999, 1,
+        -1, 1, 0.999, 1,
+        1, 1, 0.999, 1,
+    ])
+    // const factor = 5.0
+    // for (var i = 0; i < quadVertices.length; i += 4) {
+    //     quadVertices[i] *= factor
+    //     quadVertices[i + 1] *= factor
+    //     quadVertices[i + 2] *= factor
+    // }
+    
+    const quadIndices = new Uint16Array([0, 1, 2, 2, 1, 3])
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW)
+    
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndices, gl.STATIC_DRAW)
 
 
     // texture ui
@@ -154,11 +195,19 @@ window.onload = async function init() {
     render()
 }
 
+const identityMatrix = mat4()
 
 function render() {
-    yRotation += 0.01
-    yRotation %= 2 * Math.PI
-    const distance = 2.0
+
+    yRotation += 0.02
+    if (yRotation > 2 * Math.PI) {
+        yRotation %= 2 * Math.PI
+        cubemapIdx++
+        cubemapIdx %= cubemapDirs.length
+        cubemapDir = cubemapDirs[cubemapIdx]
+        load_cubemap()
+    }
+    const distance = 5.0
     
     // where we are looking from
     var omega_o = vec3(distance * Math.sin(yRotation), 0.0, distance * Math.cos(yRotation))
@@ -172,7 +221,8 @@ function render() {
             omega_o,
             vec3(0.0, 0.0, 0.0),
             vec3(0.0, 1.0, 0.0)))
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewMatrix"), false, flatten(cameraMatrix))
+    
+    // const identityCamera = mat4()
 
     // move the rest of the parameters
     gl.uniform1fv(
@@ -184,57 +234,100 @@ function render() {
             specularRange[0],
             shineRange[0]])
 
-    // render
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-
     // texture
     switch (wrappingMode) {
         case "repeat":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.REPEAT)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.REPEAT)
             break
         case "clamp-to-edge":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
             break
     }
 
     switch (filteringModeMag) {
         case "nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
             break
         case "linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
             break
     }
 
     switch (filteringModeMin) {
         case "nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
             break
         case "linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
             break
         case "nearest mipmap nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST)
             break
         case "linear mipmap nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
             break
         case "nearest mipmap linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
             break
         case "linear mipmap linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
             break
     }
 
-    // draw
+    // render
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+
+
+    // draw the quad
+    var invMatrix = inverse4(lookAt(
+        omega_o,
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 1.0, 0.0)))
+    invMatrix[0][3] = 0
+    invMatrix[1][3] = 0
+    invMatrix[2][3] = 0
+    invMatrix[3][3] = 0
+    // invMatrix[3] = vec4(0, 0, 0, 0)
+    invMatrix = mult(
+        invMatrix,
+        inverse4(perspective(90.0, 1.0, 0.1, 100.0)),
+    )
+
+    gl.uniform1i(gl.getUniformLocation(program, "isReflective"), 0)
+    gl.uniform3fv(gl.getUniformLocation(program, "eye"), flatten(omega_o))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewMatrix"), false, flatten(identityMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelTexMatrix"), false, flatten(invMatrix))
+    // gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelTexMatrix"), false, flatten(inverse4(cameraMatrix)))
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vPosition)
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
+
     gl.enable(gl.DEPTH_TEST)
     gl.enable(gl.CULL_FACE)
     gl.cullFace(gl.BACK)
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0)
 
+    // draw sphere
+    gl.uniform1i(gl.getUniformLocation(program, "isReflective"), 1)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewMatrix"), false, flatten(cameraMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelTexMatrix"), false, flatten(identityMatrix))
+    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vPosition)
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuffer)
+
+    gl.enable(gl.DEPTH_TEST)
+    gl.enable(gl.CULL_FACE)
+    gl.cullFace(gl.BACK)
     gl.drawElements(gl.TRIANGLES, vertices.length, gl.UNSIGNED_INT, 0)
+
+
     requestAnimationFrame(render)
 }
 
@@ -311,4 +404,43 @@ async function load_texture(filename) {
         gl.generateMipmap(gl.TEXTURE_2D)
     }
     image.src = filename
+}
+
+
+async function load_cubemap() {
+
+    var cubemap = [
+        cubemapDir + 'posx.png',
+        cubemapDir + 'negx.png',
+        cubemapDir + 'posy.png',
+        cubemapDir + 'negy.png',
+        cubemapDir + 'posz.png',
+        cubemapDir + 'negz.png']
+    
+    gl.activeTexture(gl.TEXTURE0)
+    var texture = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture)
+
+    for(var i = 0; i < 6; i++) {
+        var image = document.createElement('img')
+        image.crossorigin = 'anonymous'
+        image.textarget = gl.TEXTURE_CUBE_MAP_POSITIVE_X + i
+        image.onload = function(event) {
+            var image = event.target
+            gl.activeTexture(gl.TEXTURE0)
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, cubemapIdx == 4)
+            gl.texImage2D(image.textarget, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
+
+            g_tex_ready++
+        }
+        image.src = cubemap[i]
+    }
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 0)
+
+    while (g_tex_ready < 6) {
+        await new Promise(r => setTimeout(r, 100))
+    }
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP)
+
+    g_tex_ready = 0
 }

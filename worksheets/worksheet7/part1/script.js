@@ -3,10 +3,10 @@
 /** @type {WebGLRenderingContext} */
 var gl
 var canvas
+var program
 
 const clearColor = [0.3921, 0.5843, 0.9294, 1.0]
 
-var program
 const maxVerts = 800000
 const maxNumSubdivisions = 8
 var NumSubdivisions = 4
@@ -25,7 +25,17 @@ var diffuseRange = [0.0, 0.0, 1.0]
 var specularRange = [0.0, 0.0, 1.0]
 var shineRange = [500.0, 0.0000000000001, 1000.0]
 
-const cubemapDir = '../cubemaps/house_cubemap/'
+const cubemapDirs = [
+    '../cubemaps/autumn_cubemap/',
+    '../cubemaps/brightday2_cubemap/',
+    '../cubemaps/cloudyhills_cubemap/',
+    '../cubemaps/greenhill_cubemap/',
+    '../cubemaps/house_cubemap/',
+    '../cubemaps/terrain_cubemap/',
+]
+var cubemapIdx = 0
+var cubemapDir = cubemapDirs[cubemapIdx]
+var g_tex_ready = 0
 
 
 window.onload = async function init() {
@@ -38,8 +48,6 @@ window.onload = async function init() {
     var ext = gl.getExtension('OES_element_index_uint')
     if (!ext) { alert("OES_element_index_uint is not supported by your browser") }
 
-    await load_texture('../earth.jpg')
-
     // configure WebGL
     gl.viewport(0, 0, canvas.width, canvas.height)
     gl.clearColor(...clearColor)
@@ -47,6 +55,8 @@ window.onload = async function init() {
     // load shaders
     program = initShaders(gl, "vertex-shader", "fragment-shader")
     gl.useProgram(program)
+
+    await load_cubemap()
 
     // indexes
     var iBuffer = gl.createBuffer()
@@ -158,8 +168,15 @@ window.onload = async function init() {
 
 
 function render() {
-    yRotation += 0.03
-    yRotation %= 2 * Math.PI
+
+    yRotation += 0.02
+    if (yRotation > 2 * Math.PI) {
+        yRotation %= 2 * Math.PI
+        cubemapIdx++
+        cubemapIdx %= cubemapDirs.length
+        cubemapDir = cubemapDirs[cubemapIdx]
+        load_cubemap()
+    }
     const distance = 2.0
     
     // where we are looking from
@@ -192,42 +209,42 @@ function render() {
     // texture
     switch (wrappingMode) {
         case "repeat":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.REPEAT)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.REPEAT)
             break
         case "clamp-to-edge":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
             break
     }
 
     switch (filteringModeMag) {
         case "nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
             break
         case "linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
             break
     }
 
     switch (filteringModeMin) {
         case "nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
             break
         case "linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
             break
         case "nearest mipmap nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST)
             break
         case "linear mipmap nearest":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
             break
         case "nearest mipmap linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR)
             break
         case "linear mipmap linear":
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
             break
     }
 
@@ -311,35 +328,44 @@ async function load_texture(filename) {
         gl.bindTexture(gl.TEXTURE_2D, texture)
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
         gl.generateMipmap(gl.TEXTURE_2D)
-
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
     }
     image.src = filename
 }
 
 
-async function load_cubemap(filename) {
+async function load_cubemap() {
+
+    var cubemap = [
+        cubemapDir + 'posx.png',
+        cubemapDir + 'negx.png',
+        cubemapDir + 'posy.png',
+        cubemapDir + 'negy.png',
+        cubemapDir + 'posz.png',
+        cubemapDir + 'negz.png']
+    
+    gl.activeTexture(gl.TEXTURE0)
     var texture = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture)
 
-    const pixel = new Uint8Array([255, 0, 255, 255])
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel)
+    for(var i = 0; i < 6; i++) {
+        var image = document.createElement('img')
+        image.crossorigin = 'anonymous'
+        image.textarget = gl.TEXTURE_CUBE_MAP_POSITIVE_X + i
+        image.onload = function(event) {
+            var image = event.target
+            gl.activeTexture(gl.TEXTURE0)
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, cubemapIdx == 4)
+            gl.texImage2D(image.textarget, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
 
-    var image = document.createElement('img')
-    image.crossorigin = 'anonymous'
-    image.onload = function () { 
-
-        gl.bindTexture(gl.TEXTURE_2D, texture)
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
-        gl.generateMipmap(gl.TEXTURE_2D)
-
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+            g_tex_ready++
+        }
+        image.src = cubemap[i]
     }
-    image.src = filename
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 0)
+
+    while (g_tex_ready < 6) {
+        await new Promise(r => setTimeout(r, 100))
+    }
+
+    g_tex_ready = 0
 }
