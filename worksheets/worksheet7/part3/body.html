@@ -62,7 +62,7 @@
             color.y = max(color.y, 0.0);
             color.z = max(color.z, 0.0);
 
-            gl_FragColor = vec4(color, 1.0);
+            gl_FragColor = vec4(isReflective == 1 ? color : bodyColor, 1.0);
 
         }
     </script>

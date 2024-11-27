@@ -46,7 +46,7 @@
             vec3 normal = isReflective == 1
                 ? normalize(rotate_to_normal(
                     normalized_normal,
-                    texture2D(
+                    - 1.0 + 2.0 *texture2D(
                         normalMap2D, 
                         vec2(
                             0.5 - atan(normalized_normal[2], normalized_normal[0]) / (2.0 * 3.1415926535),
@@ -83,7 +83,7 @@
             color.y = max(color.y, 0.0);
             color.z = max(color.z, 0.0);
 
-            gl_FragColor = vec4(color, 1.0);
+            gl_FragColor = vec4(isReflective == 1 ? color : bodyColor, 1.0);
 
         }
     </script>
