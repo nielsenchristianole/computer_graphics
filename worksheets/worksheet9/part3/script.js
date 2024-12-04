@@ -103,21 +103,6 @@ window.onload = async function init() {
 
     // update the texture parameters
     if (true) {
-        // texture ui
-        document.getElementById("wrap-select").addEventListener(
-            "change",
-            function() {
-                wrappingMode = this.value
-            })
-
-        document.getElementById("filtering-select-mag").addEventListener(
-            "change",
-            function() {
-                filteringModeMag = this.value})
-        document.getElementById("filtering-select-min").addEventListener(
-            "change",
-            function() {
-                filteringModeMin = this.value})
 
         // UI update
         document.getElementById("emittedRange").value = Math.round((emittedRange[0] - emittedRange[1]) / emittedRange[2] * 1000)
