@@ -4,13 +4,17 @@
         attribute vec4 vNormal;
         uniform mat4 modelMatrix;
         uniform mat4 modelViewProjectionMatrix;
-        uniform mat4 modelViewMatrixNormal;
+        uniform mat4 lightModelViewProjectionMatrix;
         varying vec3 normalMap;
         varying vec3 positionMap;
+        varying vec3 eyePositionMap2D;
+        varying vec4 lightPositionMap2D;
         
         void main() {
-            normalMap = vNormal.xyz;
+            normalMap = (modelMatrix * vNormal).xyz;
             positionMap = (modelMatrix * vPosition).xyz;
+            eyePositionMap2D = (modelViewProjectionMatrix * vPosition).xyz;
+            lightPositionMap2D = lightModelViewProjectionMatrix * vPosition;
             gl_Position = modelViewProjectionMatrix * vPosition;
         }
 
@@ -21,6 +25,8 @@
         
         varying vec3 normalMap;
         varying vec3 positionMap;
+        varying vec3 eyePositionMap2D;
+        varying vec4 lightPositionMap2D;
 
         uniform float rasterParam[6];
         uniform vec3 omega_o; // the eye
@@ -32,20 +38,12 @@
 
         // where is the light emitted from
         bool useDirectionalLight = false;
+        float shadowVisibilityFactor = 0.1;
 
-        void main() {
-            
-            vec3 normal = normalize(normalMap);
-            vec4 normalHom = vec4(normal, 1.0);
-            vec4 positionHom = vec4(positionMap, 1.0);
 
-            vec3 bodyColor = (isObject == 0
-                ? texture2D( // ground
-                    colorMap2D, 
-                    positionHom.xz).xyz
-                : (isObject == 1
-                    ? vec3(1.0, 1.0, 1.0) // object
-                    : vec3(0.0, 0.0, 0.0))); // shadow
+        vec3 raster_object(vec3 position, vec3 normal) {
+
+            vec3 bodyColor = vec3(1.0, 1.0, 1.0);
 
             // emitted
             vec3 L_e = rasterParam[0] * bodyColor;
@@ -54,7 +52,7 @@
             vec3 L_a = rasterParam[1] * L_e;
 
             // light direction
-            vec3 omega_i = normalize(useDirectionalLight ? l_i : l_i - positionMap);
+            vec3 omega_i = normalize(useDirectionalLight ? l_i : l_i - position);
 
             // diffuse
             float diff = max(dot(normal, omega_i), 0.0);
@@ -71,21 +69,52 @@
             color.y = max(color.y, 0.0);
             color.z = max(color.z, 0.0);
 
-            gl_FragColor = vec4(
-                isObject == 1 ? color : bodyColor, // color based on object
-                isObject == 2 ? 1.0 : 1.0); // opacity based on shadow
-
+            return color;
         }
-    
-        vec3 rotate_to_normal(vec3 n, vec3 v) {
-            // n: normal, v: vector to rotate
 
-            float sgn_nz = sign(n.z + 1.0e-16);
-            float a = -1.0/(1.0 + abs(n.z));
-            float b = n.x*n.y*a;
-            return vec3(1.0 + n.x*n.x*a, b, -sgn_nz*n.x) * v.x 
-                    + vec3(sgn_nz*b, sgn_nz*(1.0 + n.y*n.y*a), -n.y)*v.y
-                    + n*v.z;
+
+        void main() {
+
+            vec3 shadowCoord = (lightPositionMap2D.xyz / lightPositionMap2D.w) / 2.0 + 0.5;
+
+            if (isObject == 0) { // ground
+
+                vec4 tex = texture2D(
+                    colorMap2D,
+                    shadowCoord.xy);
+                float depth_val = tex.x + tex.y / 256.0 + tex.z / 65536.0 + tex.w / 16777216.0;
+
+                float is_shadow = depth_val > shadowCoord.z - 0.005 ? 1.0 : 0.0;
+
+                gl_FragColor = vec4(
+                    is_shadow,
+                    is_shadow,
+                    is_shadow,
+                    1.0);
+                return;
+            } else if (isObject == 1) { // object
+                gl_FragColor = vec4(
+                    raster_object(
+                        positionMap,
+                        normalize(normalMap)),
+                    1.0);
+            } else if (isObject == 2) { // shadow
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                return;
+            } else if (isObject == 3) { // shadow
+
+                vec4 tmp = fract(vec4(
+                    shadowCoord.z,
+                    256.0 * shadowCoord.z,
+                    65536.0 * shadowCoord.z,
+                    16777216.0 * shadowCoord.z));
+
+                gl_FragColor = tmp - tmp.gbaa * vec4(1.0 / 256.0, 1.0 / 256.0, 1.0 / 256.0, 0.0);
+                return;
+            } else {
+                gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+                return;
+            }
         }
 
     </script>

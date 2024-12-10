@@ -4,8 +4,10 @@
 var gl
 var canvas
 var program
+var shadowFramebuffer
 
-const clearColor = [0.3921, 0.5843, 0.9294, 1.0]
+const cornflowerBlueClearColor = [0.3921, 0.5843, 0.9294, 1.0]
+const blackClearColor = [0.0, 0.0, 0.0, 1.0]
 const groundHeight = -1.0
 
 var drawingInfo
@@ -58,7 +60,7 @@ window.onload = async function init() {
 
     // configure WebGL
     gl.viewport(0, 0, canvas.width, canvas.height)
-    gl.clearColor(...clearColor)
+    shadowFramebuffer = initFramebufferObject(canvas.width, canvas.height)
 
     // load shaders
     program = initShaders(gl, "vertex-shader", "fragment-shader")
@@ -178,25 +180,14 @@ function render() {
         yVelocity += yAcceleration
     }
 
-    const distance = 5.0
+    const distance = 6.0
     
     // light position
-    var l_i = vec3(distance * Math.sin(yRotation), 3, distance * Math.cos(yRotation) - 3.0)
+    var l_i = vec3(distance * Math.sin(yRotation), 4, distance * Math.cos(yRotation) - 3.0)
     gl.uniform3fv(gl.getUniformLocation(program, "l_i"), flatten(l_i))
     // where we are looking from
     var omega_o = vec3(0.0, 0.2, 1.0)
     gl.uniform3fv(gl.getUniformLocation(program, "omega_o"), flatten(omega_o))
-    
-    // camera matrix
-    var projectionMatrix = mat4(1.0)
-    projectionMatrix[3][3] = 0.0
-    projectionMatrix[3][1] = 1.0 / - (l_i[1] - groundHeight + 0.01)
-    projectionMatrix = mult(
-        translate(...l_i),
-        projectionMatrix)
-    projectionMatrix = mult(
-        projectionMatrix,
-        translate(...negate(l_i)))
 
     // scale and translate model matrix
     var modelMatrix = mult(
@@ -205,28 +196,24 @@ function render() {
     )
 
     const identityMatrix = mat4()
+    const perspectiveMatrix = perspective(45.0, 1.0, 0.1, 10.0)
 
     var lightViewProjectionMatrix = mult(
-        perspective(45.0, 1.0, 0.1, 100.0),
+        perspective(45.0, 1.0, 5.5, 10.0),
         lookAt(
             l_i,
             vec3(0.0, groundHeight, -3.0),
             vec3(0.0, 1.0, 0.0)))
 
     var eyeViewProjectionMatrix = mult(
-        perspective(45.0, 1.0, 0.1, 100.0),
+        perspectiveMatrix,
         lookAt(
             omega_o,
             vec3(0.0, 0.0, -3.0),
             vec3(0.0, 1.0, 0.0)))
-    
-    var viewProjectionMatrix = eyeViewProjectionMatrix
-    
-    var shadowViewMatrix = mult(
-        mult(viewProjectionMatrix, projectionMatrix),
-        modelMatrix)
 
-    var modelViewProjectionMatrix = mult(viewProjectionMatrix, modelMatrix)
+    var eyeModelViewProjectionMatrix = mult(eyeViewProjectionMatrix, modelMatrix)
+    var lightModelViewProjectionMatrix = mult(lightViewProjectionMatrix, modelMatrix)
 
     // move the rest of the parameters
     gl.uniform1fv(
@@ -239,26 +226,33 @@ function render() {
             shineRange[0]])
 
     // render
+    gl.clearColor(...cornflowerBlueClearColor)
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 
-    // draw quad
+    // draw the shadow buffer
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFramebuffer)
+    gl.viewport(0, 0, shadowFramebuffer.width, shadowFramebuffer.height)
+    gl.clearColor(...blackClearColor)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+    // move quad
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vPosition)
 
-    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 0)
+    // draw quad
+    gl.uniform1i(gl.getUniformLocation(program, "colorMap2D"), 0)
+    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 3)
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, flatten(identityMatrix))
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(viewProjectionMatrix))
-    // gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewMatrixNormal"), false, flatten(modelMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
     
     gl.enable(gl.DEPTH_TEST)
-    // gl.enable(gl.CULL_FACE)
-    // gl.cullFace(gl.BACK)
     gl.drawElements(gl.TRIANGLES, quadIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
 
-    // draw shadow
+    // move model
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuffer)
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
@@ -266,18 +260,58 @@ function render() {
     gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer)
     gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vNormal)
-    
-    gl.depthFunc(gl.GREATER)
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, flatten(modelMatrix))
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(shadowViewMatrix))
-    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 2)
-    gl.drawElements(gl.TRIANGLES, verticeIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
-    
+
     // draw object
     gl.depthFunc(gl.LESS)
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(modelViewProjectionMatrix))
-    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 1)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, flatten(modelMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(lightModelViewProjectionMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightModelViewProjectionMatrix))
+    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 3)
     gl.drawElements(gl.TRIANGLES, verticeIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
+
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+
+
+    // draw the scene
+
+    // move quad
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vPosition)
+
+    // draw quad
+    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 0)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, flatten(identityMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(eyeViewProjectionMatrix))
+    // gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
+    
+    gl.enable(gl.DEPTH_TEST)
+    gl.uniform1i(gl.getUniformLocation(program, "colorMap2D"), 1)
+    gl.drawElements(gl.TRIANGLES, quadIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
+
+    // move model
+    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iBuffer)
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vPosition)
+    gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer)
+    gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vNormal)
+
+    // draw object
+    gl.depthFunc(gl.LESS)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, flatten(modelMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(eyeModelViewProjectionMatrix))
+    // gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(lightModelViewProjectionMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightModelViewProjectionMatrix ))
+    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 0)
+    gl.drawElements(gl.TRIANGLES, verticeIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
+
+
 
     requestAnimationFrame(render)
 }
@@ -287,7 +321,7 @@ function render() {
 
 
 
-function initFramebufferObject(gl, width, height) {
+function initFramebufferObject(width, height) {
     var framebuffer = gl.createFramebuffer()
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     
@@ -296,8 +330,9 @@ function initFramebufferObject(gl, width, height) {
     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height)
     
     var shadowMap = gl.createTexture()
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, shadowMap).texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, shadowMap)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     framebuffer.texture = shadowMap
