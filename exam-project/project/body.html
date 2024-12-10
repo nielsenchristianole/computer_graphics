@@ -1,0 +1,168 @@
+<html>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        attribute vec4 vNormal;
+        uniform mat4 modelMatrix;
+        uniform mat4 modelViewProjectionMatrix;
+        uniform mat4 lightModelViewProjectionMatrix;
+        varying vec3 normalMap;
+        varying vec3 positionMap;
+        varying vec3 eyePositionMap2D;
+        varying vec4 lightPositionMap2D;
+        
+        void main() {
+            normalMap = (modelMatrix * vNormal).xyz;
+            positionMap = (modelMatrix * vPosition).xyz;
+            eyePositionMap2D = (modelViewProjectionMatrix * vPosition).xyz;
+            lightPositionMap2D = lightModelViewProjectionMatrix * vPosition;
+            gl_Position = modelViewProjectionMatrix * vPosition;
+        }
+
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        
+        varying vec3 normalMap;
+        varying vec3 positionMap;
+        varying vec3 eyePositionMap2D;
+        varying vec4 lightPositionMap2D;
+
+        uniform float rasterParam[6];
+        uniform vec3 omega_o; // the eye
+        uniform int isObject;
+        uniform vec3 l_i;
+
+        // uniform samplerCube texMap;
+        uniform sampler2D colorMap2D;
+
+        // where is the light emitted from
+        bool useDirectionalLight = false;
+        float shadowVisibilityFactor = 0.1;
+
+
+        vec3 raster_object(vec3 position, vec3 normal) {
+
+            vec3 bodyColor = vec3(1.0, 1.0, 1.0);
+
+            // emitted
+            vec3 L_e = rasterParam[0] * bodyColor;
+
+            // ambient
+            vec3 L_a = rasterParam[1] * L_e;
+
+            // light direction
+            vec3 omega_i = normalize(useDirectionalLight ? l_i : l_i - position);
+
+            // diffuse
+            float diff = max(dot(normal, omega_i), 0.0);
+            vec3 L_d = rasterParam[2] * diff * L_e;
+            
+            // specular
+            vec3 omega_h = normalize(omega_i + normalize(omega_o)); // halfway vector
+            float spec = pow(max(dot(normal, omega_h), 0.0), rasterParam[4]);
+            vec3 L_s = rasterParam[3] * spec * rasterParam[0] * vec3(1.0, 1.0, 1.0);
+
+            // combine
+            vec3 color = L_d + L_s + L_a;
+            color.x = max(color.x, 0.0);
+            color.y = max(color.y, 0.0);
+            color.z = max(color.z, 0.0);
+
+            return color;
+        }
+
+
+        void main() {
+
+            vec3 shadowCoord = (lightPositionMap2D.xyz / lightPositionMap2D.w) / 2.0 + 0.5;
+
+            if (isObject == 0) { // ground
+
+                vec4 tex = texture2D(
+                    colorMap2D,
+                    shadowCoord.xy);
+                float depth_val = tex.x + tex.y / 256.0 + tex.z / 65536.0 + tex.w / 16777216.0;
+
+                float is_shadow = depth_val > shadowCoord.z - 0.005 ? 1.0 : 0.7;
+
+                gl_FragColor = vec4(
+                    is_shadow,
+                    is_shadow,
+                    is_shadow,
+                    1.0);
+                return;
+            } else if (isObject == 1) { // object
+                gl_FragColor = vec4(
+                    raster_object(
+                        positionMap,
+                        normalize(normalMap)),
+                    1.0);
+            } else if (isObject == 2) { // shadow
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                return;
+            } else if (isObject == 3) { // shadow
+
+                vec4 tmp = fract(vec4(
+                    shadowCoord.z,
+                    256.0 * shadowCoord.z,
+                    65536.0 * shadowCoord.z,
+                    16777216.0 * shadowCoord.z));
+
+                gl_FragColor = tmp - tmp.gbaa * vec4(1.0 / 256.0, 1.0 / 256.0, 1.0 / 256.0, 0.0);
+                return;
+            } else {
+                gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+                return;
+            }
+        }
+
+    </script>
+
+    <script type="text/javascript" src="../../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../../Common/MV.js"></script>
+    <script type="text/javascript" src="../../../Common/OBJParser.js"></script>
+    <script type="text/javascript" src="script.js"></script>
+    
+    <body>
+        <canvas id="gl-canvas" width="512" height="512">
+            <!-- The following message is displayed if the browser doesn't
+            -- support HTML5 -->
+            Sorry; your web browser does not support HTML5's canvas element.
+        </canvas>
+    </body>
+
+    <div>
+        <button id="toggleObjectAnimation">Toggle Object Animation</button>
+        <button id="toggleLightAnimation">Toggle Light Animation</button>
+        <div><br></div>
+        
+        <div>
+            <div id="emittedDisplay">0.5</div>
+            <input type="range" id="emittedRange" min="0" max="1000" value="500" step="1"/>
+            <label>Emitted radiance (L_e)</label>
+        </div>
+        <div>
+            <div id="ambientDisplay">0.5</div>
+            <input type="range" id="ambientRange" min="0" max="1000" value="500" step="1" class="slider"/>
+            <label>Ambient radiance (L_a)</label>
+        </div>
+        <div>
+            <div id="diffuseDisplay">0.5</div>
+            <input type="range" id="diffuseRange" min="0" max="1000" value="500" step="1"/>
+            <label>Diffuse coefficient (k_d)</label>
+        </div>
+        <div>
+            <div id="specularDisplay">0.5</div>
+            <input type="range" id="specularRange" min="0" max="1000" value="500" step="1"/>
+            <label>Specular coefficient (k_s)</label>
+        </div>
+        <div>
+            <div id="shineDisplay">0.5</div>
+            <input type="range" id="shineRange" min="0" max="1000" value="500" step="1"/>
+            <label>Shininess (s)</label>
+        </div>
+    </div>
+
+</html>
