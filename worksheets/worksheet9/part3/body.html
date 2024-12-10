@@ -84,7 +84,7 @@
                     shadowCoord.xy);
                 float depth_val = tex.x + tex.y / 256.0 + tex.z / 65536.0 + tex.w / 16777216.0;
 
-                float is_shadow = depth_val > shadowCoord.z - 0.005 ? 1.0 : 0.0;
+                float is_shadow = depth_val > shadowCoord.z - 0.005 ? 1.0 : 0.7;
 
                 gl_FragColor = vec4(
                     is_shadow,
