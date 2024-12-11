@@ -1,0 +1,83 @@
+<!-- 
+This code was written by chatGPT 
+-->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Viewer</title>
+    <!-- Prism CSS for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism.min.css" rel="stylesheet" />
+    <!-- Prism CSS for line numbers -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet" />
+    <!-- Custom CSS for line numbers -->
+    <style>
+        pre.line-numbers {
+            position: relative;
+            padding-left: 3.8em;
+            counter-reset: linenumber;
+        }
+        pre.line-numbers code {
+            display: block;
+        }
+        pre.line-numbers .line-numbers-rows {
+            position: absolute;
+            pointer-events: none;
+            top: 0;
+            font-size: 100%;
+            left: -3.8em;
+            width: 3em; /* works for line-numbers below 1000 lines */
+            letter-spacing: -1px;
+            border-right: 0;
+            user-select: none;
+        }
+        pre.line-numbers .line-numbers-rows > span {
+            display: block;
+            counter-increment: linenumber;
+        }
+        pre.line-numbers .line-numbers-rows > span:before {
+            content: counter(linenumber);
+            color: #999;
+            display: block;
+            padding-right: 0.8em;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>HTML Code</h1>
+    <pre id="htmlCode" class="line-numbers"><code class="language-html"></code></pre>
+
+    <h1>JavaScript Code</h1>
+    <pre id="jsCode" class="line-numbers"><code class="language-javascript"></code></pre>
+
+    <!-- Prism JS for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+    <!-- Prism JS plugin for line numbers -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+
+    <script>
+        // Function to fetch and display code from a file
+        async function loadCode(filePath, elementId, language) {
+            try {
+                const response = await fetch(filePath);
+                const code = await response.text();
+                const codeElement = document.querySelector(`#${elementId} code`);
+                codeElement.textContent = code;
+                codeElement.className = `language-${language}`;
+                Prism.highlightElement(codeElement);
+            } catch (error) {
+                console.error('Error loading code:', error);
+            }
+        }
+
+        // Load HTML and JavaScript code
+        loadCode('body.html', 'htmlCode', 'html');
+        loadCode('script.js', 'jsCode', 'javascript');
+    </script>
+</body>
+</html>
