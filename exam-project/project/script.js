@@ -15,6 +15,7 @@ var yRotation = 0
 var yHeight = 0.5
 var yVelocity = 0.
 var yAcceleration = -0.0001
+var waveTime = 0
 var normals
 var vertices
 var verticeIndices
@@ -23,6 +24,10 @@ const quadVertices = new Float32Array([
      2, groundHeight, -5, 1,
     -2, groundHeight, -1, 1,
      2, groundHeight, -1, 1
+    // -12, groundHeight, -25, 1,
+    //  12, groundHeight, -25, 1,
+    // -12, groundHeight, -1, 1,
+    //  12, groundHeight, -1, 1
 ])
 const quadIndices = new Uint32Array([0, 2, 1, 3, 1, 2])
 
@@ -33,11 +38,12 @@ var filteringModeMin = 'nearest'
 // initial value, min, scale
 var animateObject = true
 var animateLight = true
+var animateWaves = true
 var emittedRange = [1.0, 0.0, 2.0]
 var ambientRange = [0.2, 0.0, 1.0]
 var diffuseRange = [1.0, 0.0, 1.0]
 var specularRange = [1.0, 0.0, 1.0]
-var shineRange = [500.0, 0.0000000000001, 1000.0]
+var shineRange = [20.0, 0.0000000000001, 1000.0]
 
 var iBuffer
 var vBuffer
@@ -160,6 +166,30 @@ window.onload = async function init() {
                 document.getElementById('shineDisplay').innerHTML = shineRange[0]})
     }
 
+    // move random numbers
+    [
+        'amplitudes1sin',
+        'amplitudes1cos',
+        'amplitudes2sin',
+        'amplitudes2cos',
+        'amplitudes3sin',
+        'amplitudes3cos',
+        'amplitudes4sin',
+        'amplitudes4cos',
+        'amplitudes5sin',
+        'amplitudes5cos',
+        'amplitudes6sin',
+        'amplitudes6cos',
+        'amplitudes7sin',
+        'amplitudes7cos',
+        'amplitudes8sin',
+        'amplitudes8cos'
+    ].forEach(uniformName => {
+        var nums = Array.from({length: 4}, () => Math.random() * (Math.random() > 0.5 ? 1 : -1))
+        console.log(uniformName, nums)
+        gl.uniform4fv(gl.getUniformLocation(program, uniformName), nums)
+    })
+
     render()
 }
 
@@ -179,8 +209,12 @@ function render() {
         }
         yVelocity += yAcceleration
     }
+    if (animateWaves) {
+        waveTime += 0.03
+        waveTime %= 200.0 * Math.PI
+    }
 
-    const distance = 6.0
+    const distance = 3.0
     
     // light position
     var l_i = vec3(distance * Math.sin(yRotation), 4, distance * Math.cos(yRotation) - 3.0)
@@ -189,24 +223,29 @@ function render() {
     var omega_o = vec3(0.0, 0.2, 1.0)
     gl.uniform3fv(gl.getUniformLocation(program, "omega_o"), flatten(omega_o))
 
+    gl.uniform1f(gl.getUniformLocation(program, "waveTime"), waveTime)
+
     // scale and translate model matrix
     var modelMatrix = mult(
-        translate(0.0, yHeight, -3.0),
-        scalem(0.25, 0.25, 0.25),
-    )
+        mult(
+            translate(0.0, yHeight, -3.0),
+            scalem(0.25, 0.25, 0.25),
+        ),
+        rotateY(100.0 * yHeight))
 
     const identityMatrix = mat4()
-    const perspectiveMatrix = perspective(45.0, 1.0, 0.1, 10.0)
+    const eyePerspectiveMatrix = perspective(45.0, 1.0, 0.1, 100.0)
+    const lightPerspectiveMatrix = perspective(45.0, 1.0, 2.5, 10.0)
 
     var lightViewProjectionMatrix = mult(
-        perspective(45.0, 1.0, 5.5, 10.0),
+        lightPerspectiveMatrix,
         lookAt(
             l_i,
             vec3(0.0, groundHeight, -3.0),
             vec3(0.0, 1.0, 0.0)))
 
     var eyeViewProjectionMatrix = mult(
-        perspectiveMatrix,
+        eyePerspectiveMatrix,
         lookAt(
             omega_o,
             vec3(0.0, 0.0, -3.0),
@@ -308,7 +347,7 @@ function render() {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(eyeModelViewProjectionMatrix))
     // gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(lightModelViewProjectionMatrix))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightModelViewProjectionMatrix ))
-    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 0)
+    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 1)
     gl.drawElements(gl.TRIANGLES, verticeIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
 
 

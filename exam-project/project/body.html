@@ -32,7 +32,25 @@
         uniform vec3 omega_o; // the eye
         uniform int isObject;
         uniform vec3 l_i;
+        uniform float waveTime;
 
+        uniform vec4 amplitudes1sin;
+        uniform vec4 amplitudes1cos;
+        uniform vec4 amplitudes2sin;
+        uniform vec4 amplitudes2cos;
+        uniform vec4 amplitudes3sin;
+        uniform vec4 amplitudes3cos;
+        uniform vec4 amplitudes4sin;
+        uniform vec4 amplitudes4cos;
+        uniform vec4 amplitudes5sin;
+        uniform vec4 amplitudes5cos;
+        uniform vec4 amplitudes6sin;
+        uniform vec4 amplitudes6cos;
+        uniform vec4 amplitudes7sin;
+        uniform vec4 amplitudes7cos;
+        uniform vec4 amplitudes8sin;
+        uniform vec4 amplitudes8cos;
+        
         // uniform samplerCube texMap;
         uniform sampler2D colorMap2D;
 
@@ -41,9 +59,7 @@
         float shadowVisibilityFactor = 0.1;
 
 
-        vec3 raster_object(vec3 position, vec3 normal) {
-
-            vec3 bodyColor = vec3(1.0, 1.0, 1.0);
+        vec3 raster_object(vec3 position, vec3 normal, float isShadow, vec3 bodyColor) {
 
             // emitted
             vec3 L_e = rasterParam[0] * bodyColor;
@@ -64,12 +80,14 @@
             vec3 L_s = rasterParam[3] * spec * rasterParam[0] * vec3(1.0, 1.0, 1.0);
 
             // combine
-            vec3 color = L_d + L_s + L_a;
+            vec3 color = L_d + isShadow * L_s + L_a;
             color.x = max(color.x, 0.0);
             color.y = max(color.y, 0.0);
             color.z = max(color.z, 0.0);
 
             return color;
+            return normal;
+            return vec3(normal.z, -normal.z, 0.0);
         }
 
 
@@ -77,31 +95,128 @@
 
             vec3 shadowCoord = (lightPositionMap2D.xyz / lightPositionMap2D.w) / 2.0 + 0.5;
 
+            vec4 tex = texture2D(
+                colorMap2D,
+                shadowCoord.xy);
+            float depth_val = tex.x + tex.y / 256.0 + tex.z / 65536.0 + tex.w / 16777216.0;
+
+            float shadowFactor = depth_val > shadowCoord.z - 0.005 ? 1.0 : 0.0;
+
             if (isObject == 0) { // ground
 
-                vec4 tex = texture2D(
-                    colorMap2D,
-                    shadowCoord.xy);
-                float depth_val = tex.x + tex.y / 256.0 + tex.z / 65536.0 + tex.w / 16777216.0;
+                float scale = 0.5;
+                vec4 arange = 1.0 + vec4(0.0, 1.0, 2.0, 3.0);
+                float yDisplacement = scale * (dot(
+                    sin(
+                        arange * (
+                            amplitudes1sin * positionMap.x
+                            + amplitudes2sin * positionMap.z
+                            + amplitudes3sin * waveTime)),
+                    amplitudes4sin) + dot(
+                    cos(
+                        arange * (
+                            amplitudes1cos * positionMap.x
+                            + amplitudes2cos * positionMap.z
+                            + amplitudes3cos * waveTime)),
+                    amplitudes4cos) + dot(
+                    sin(
+                        (4.0 + arange) * (
+                            amplitudes5sin * positionMap.x
+                            + amplitudes6sin * positionMap.z
+                            + amplitudes7sin * waveTime)),
+                    amplitudes8sin) + dot(
+                    cos(
+                        (4.0 + arange) * (
+                            amplitudes5cos * positionMap.x
+                            + amplitudes6cos * positionMap.z
+                            + amplitudes7cos * waveTime)),
+                    amplitudes8cos));
+                float dDisdx =  scale * (dot(
+                    cos(
+                        arange * (
+                            amplitudes1sin * positionMap.x
+                            + amplitudes2sin * positionMap.z
+                            + amplitudes3sin * waveTime)),
+                    arange * amplitudes1sin * amplitudes4sin) - dot(
+                    sin(
+                        arange * (
+                            amplitudes1cos * positionMap.x
+                            + amplitudes2cos * positionMap.z
+                            + amplitudes3cos * waveTime)),
+                        arange * amplitudes1cos * amplitudes4cos) + dot(
+                    cos(
+                        (4.0 + arange) * (
+                            amplitudes5sin * positionMap.x
+                            + amplitudes6sin * positionMap.z
+                            + amplitudes7sin * waveTime)),
+                    (4.0 + arange) * amplitudes5sin * amplitudes8sin) - dot(
+                    sin(
+                        (4.0 + arange) * (
+                            amplitudes5cos * positionMap.x
+                            + amplitudes6cos * positionMap.z
+                            + amplitudes7cos * waveTime)),
+                        (4.0 + arange) * amplitudes5cos * amplitudes8cos));
+                float dDisdz =  scale * (dot(
+                    cos(
+                        arange * (
+                            amplitudes1sin * positionMap.x
+                            + amplitudes2sin * positionMap.z
+                            + amplitudes3sin * waveTime)),
+                    arange * amplitudes2sin * amplitudes4sin) - dot(
+                    sin(
+                        arange * (
+                            amplitudes1cos * positionMap.x
+                            + amplitudes2cos * positionMap.z
+                            + amplitudes3cos * waveTime)),
+                        arange * amplitudes2cos * amplitudes4cos) + dot(
+                    cos(
+                        (4.0 + arange) * (
+                            amplitudes5sin * positionMap.x
+                            + amplitudes6sin * positionMap.z
+                            + amplitudes7sin * waveTime)),
+                    (4.0 + arange) * amplitudes6sin * amplitudes8sin) - dot(
+                    sin(
+                        (4.0 + arange) * (
+                            amplitudes5cos * positionMap.x
+                            + amplitudes6cos * positionMap.z
+                            + amplitudes7cos * waveTime)),
+                        (4.0 + arange) * amplitudes6cos * amplitudes8cos));
 
-                float is_shadow = depth_val > shadowCoord.z - 0.005 ? 1.0 : 0.7;
+                vec3 position = vec3(
+                    positionMap.x,
+                    positionMap.y + yDisplacement,
+                    positionMap.z);
+                vec3 normal = normalize(
+                    cross(
+                        vec3(0.0, normalize(vec2(dDisdz, 1.0))),
+                        vec3(normalize(vec2(1.0, dDisdx)), 0.0)
+                        ));
+
+                // vec3 normal = normalize(vec3(
+                //     -dDisdx,
+                //     0.0,
+                //     -dDisdz));
 
                 gl_FragColor = vec4(
-                    is_shadow,
-                    is_shadow,
-                    is_shadow,
+                    raster_object(
+                        position,
+                        normal,
+                        shadowFactor,
+                        vec3(0.0, 0.0, shadowFactor == 1.0 ? 1.0 : 0.3)),
                     1.0);
                 return;
             } else if (isObject == 1) { // object
                 gl_FragColor = vec4(
                     raster_object(
                         positionMap,
-                        normalize(normalMap)),
+                        normalize(normalMap),
+                        1.0,
+                        vec3(1.0, 1.0, 1.0)),
                     1.0);
             } else if (isObject == 2) { // shadow
                 gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                 return;
-            } else if (isObject == 3) { // shadow
+            } else if (isObject == 3) { // create shadow map
 
                 vec4 tmp = fract(vec4(
                     shadowCoord.z,
