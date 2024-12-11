@@ -11,15 +11,13 @@ const blackClearColor = [0.0, 0.0, 0.0, 1.0]
 const groundHeight = -1.0
 
 var drawingInfo
-var yRotation = 0
-var yHeight = 0.5
-var yVelocity = 0.
-var yAcceleration = -0.0001
+var yRotationLight = 0
+var yRotationObject = 0.5
 var waveTime = 0
 var normals
 var vertices
 var verticeIndices
-const quadVertices = new Float32Array([
+const quadVerticesWater = new Float32Array([
     -2, groundHeight, -5, 1,
      2, groundHeight, -5, 1,
     -2, groundHeight, -1, 1,
@@ -29,7 +27,16 @@ const quadVertices = new Float32Array([
     // -12, groundHeight, -1, 1,
     //  12, groundHeight, -1, 1
 ])
-const quadIndices = new Uint32Array([0, 2, 1, 3, 1, 2])
+const quadIndicesWater = new Uint32Array([0, 2, 1, 3, 1, 2])
+
+const quadVerticesBackground = new Float32Array([
+    -1, -1, 0.999, 1,
+    1, -1, 0.999, 1,
+    -1, 1, 0.999, 1,
+    1, 1, 0.999, 1,
+])
+const quadIndicesBackground = new Uint32Array([0, 1, 2, 2, 1, 3])
+
 
 var wrappingMode = 'repeat'
 var filteringModeMag = 'nearest'
@@ -40,18 +47,32 @@ var animateObject = true
 var animateLight = true
 var animateWaves = true
 var emittedRange = [1.0, 0.0, 2.0]
-var ambientRange = [0.2, 0.0, 1.0]
-var diffuseRange = [1.0, 0.0, 1.0]
+var ambientRange = [0.5, 0.0, 1.0]
+var diffuseRange = [0.5, 0.0, 1.0]
 var specularRange = [1.0, 0.0, 1.0]
-var shineRange = [20.0, 0.0000000000001, 1000.0]
+var shineRange = [2.0, 0.0000000000001, 1000.0]
 
 var iBuffer
 var vBuffer
 var nBuffer
-var quadVertexBuffer
-var quadIndexBuffer
+var quadVertexBufferWater
+var quadIndexBufferWater
+var quadVertexBufferBackground
+var quadIndexBufferBackground
 var vPosition
 var vNormal
+
+const cubemapDirs = [
+    '../cubemaps/autumn_cubemap/',
+    '../cubemaps/brightday2_cubemap/',
+    '../cubemaps/cloudyhills_cubemap/',
+    '../cubemaps/greenhill_cubemap/',
+    '../cubemaps/house_cubemap/',
+    '../cubemaps/terrain_cubemap/',
+]
+var cubemapIdx = 4
+var cubemapDir = cubemapDirs[cubemapIdx]
+var g_tex_ready = 0
 
 
 window.onload = async function init() {
@@ -72,7 +93,7 @@ window.onload = async function init() {
     program = initShaders(gl, "vertex-shader", "fragment-shader")
     gl.useProgram(program)
 
-    // await load_cubemap()
+    await load_cubemap()
     await load_texture('../texture.png')
     drawingInfo = await readOBJFile('../teapot.obj', 1.0, true)
     vertices = drawingInfo.vertices
@@ -82,8 +103,10 @@ window.onload = async function init() {
     iBuffer = gl.createBuffer()
     vBuffer = gl.createBuffer()
     nBuffer = gl.createBuffer()
-    quadVertexBuffer = gl.createBuffer()
-    quadIndexBuffer = gl.createBuffer()
+    quadVertexBufferWater = gl.createBuffer()
+    quadIndexBufferWater = gl.createBuffer()
+    quadVertexBufferBackground = gl.createBuffer()
+    quadIndexBufferBackground = gl.createBuffer()
     vPosition = gl.getAttribLocation(program, "vPosition")
     vNormal = gl.getAttribLocation(program, "vNormal")
 
@@ -100,14 +123,23 @@ window.onload = async function init() {
     gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW)
 
-    // quad
+    // water quad
     // vertex buffer
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW)
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBufferWater)
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerticesWater, gl.STATIC_DRAW)
     
     // index buffer
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndices, gl.STATIC_DRAW)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBufferWater)
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndicesWater, gl.STATIC_DRAW)
+
+    // background quad
+    // vertex buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBufferBackground)
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerticesBackground, gl.STATIC_DRAW)
+
+    // index buffer
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBufferBackground)
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, quadIndicesBackground, gl.STATIC_DRAW)
 
     // update the texture parameters
     if (true) {
@@ -134,6 +166,10 @@ window.onload = async function init() {
             "click",
             function() {
                 animateLight = !animateLight})
+        document.getElementById("toggleWaveAnimation").addEventListener(
+            "click",
+            function() {
+                animateWaves = !animateWaves})
 
         document.getElementById("emittedRange").addEventListener(
             "input",
@@ -186,7 +222,7 @@ window.onload = async function init() {
         'amplitudes8cos'
     ].forEach(uniformName => {
         var nums = Array.from({length: 4}, () => Math.random() * (Math.random() > 0.5 ? 1 : -1))
-        console.log(uniformName, nums)
+        // console.log(uniformName, nums)
         gl.uniform4fv(gl.getUniformLocation(program, uniformName), nums)
     })
 
@@ -198,16 +234,12 @@ const identityMatrix = mat4()
 function render() {
 
     if (animateLight) {
-        yRotation += 0.02
-        yRotation %= 2 * Math.PI
+        yRotationLight += 0.02
+        yRotationLight %= 2 * Math.PI
     }
     if (animateObject) {
-        yHeight += yVelocity
-        if (yHeight <= -1.0) {
-            yHeight = -1.0
-            yVelocity = -yVelocity
-        }
-        yVelocity += yAcceleration
+        yRotationObject -= 0.03
+        yRotationObject %= 360.0
     }
     if (animateWaves) {
         waveTime += 0.03
@@ -217,7 +249,7 @@ function render() {
     const distance = 3.0
     
     // light position
-    var l_i = vec3(distance * Math.sin(yRotation), 4, distance * Math.cos(yRotation) - 3.0)
+    var l_i = vec3(distance * Math.sin(yRotationLight), 4, distance * Math.cos(yRotationLight) - 3.0)
     gl.uniform3fv(gl.getUniformLocation(program, "l_i"), flatten(l_i))
     // where we are looking from
     var omega_o = vec3(0.0, 0.2, 1.0)
@@ -228,14 +260,14 @@ function render() {
     // scale and translate model matrix
     var modelMatrix = mult(
         mult(
-            translate(0.0, yHeight, -3.0),
+            translate(0.0, 0.5, -3.0),
             scalem(0.25, 0.25, 0.25),
         ),
-        rotateY(100.0 * yHeight))
+        rotateY(100.0 * yRotationObject))
 
     const identityMatrix = mat4()
     const eyePerspectiveMatrix = perspective(45.0, 1.0, 0.1, 100.0)
-    const lightPerspectiveMatrix = perspective(45.0, 1.0, 2.5, 10.0)
+    const lightPerspectiveMatrix = perspective(45.0, 1.0, 1.5, 15.0)
 
     var lightViewProjectionMatrix = mult(
         lightPerspectiveMatrix,
@@ -276,8 +308,8 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     // move quad
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBufferWater)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBufferWater)
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vPosition)
 
@@ -289,7 +321,7 @@ function render() {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
     
     gl.enable(gl.DEPTH_TEST)
-    gl.drawElements(gl.TRIANGLES, quadIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
+    gl.drawElements(gl.TRIANGLES, quadIndicesWater.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
 
     // move model
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
@@ -314,10 +346,25 @@ function render() {
 
 
     // draw the scene
+    gl.enable(gl.DEPTH_TEST)
+
+    // draw the background
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBufferBackground)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBufferBackground)
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vPosition)
+
+    gl.uniform1i(gl.getUniformLocation(program, "isObject"), 2)
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelMatrix"), false, flatten(identityMatrix))
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(identityMatrix))
+
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 2)
+    gl.drawElements(gl.TRIANGLES, quadIndicesBackground.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
+
 
     // move quad
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBuffer)
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVertexBufferWater)
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, quadIndexBufferWater)
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0)
     gl.enableVertexAttribArray(vPosition)
 
@@ -327,10 +374,9 @@ function render() {
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(eyeViewProjectionMatrix))
     // gl.uniformMatrix4fv(gl.getUniformLocation(program, "modelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "lightModelViewProjectionMatrix"), false, flatten(lightViewProjectionMatrix))
-    
-    gl.enable(gl.DEPTH_TEST)
+
     gl.uniform1i(gl.getUniformLocation(program, "colorMap2D"), 1)
-    gl.drawElements(gl.TRIANGLES, quadIndices.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
+    gl.drawElements(gl.TRIANGLES, quadIndicesWater.length, gl.UNSIGNED_INT, 0 * new Uint32Array([1]).byteLength)
 
     // move model
     gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer)
@@ -428,4 +474,43 @@ async function load_texture(filename) {
         await new Promise(r => setTimeout(r, 100))
     }
     gl.uniform1i(gl.getUniformLocation(program, "colorMap2D"), 0)
+}
+
+async function load_cubemap() {
+
+    var cubemap = [
+        cubemapDir + 'posx.png',
+        cubemapDir + 'negx.png',
+        cubemapDir + 'posy.png',
+        cubemapDir + 'negy.png',
+        cubemapDir + 'posz.png',
+        cubemapDir + 'negz.png']
+    
+    gl.activeTexture(gl.TEXTURE2)
+    var texture = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture)
+
+    for(var i = 0; i < 6; i++) {
+        var image = document.createElement('img')
+        image.crossorigin = 'anonymous'
+        image.textarget = gl.TEXTURE_CUBE_MAP_POSITIVE_X + i
+        image.onload = function(event) {
+            var image = event.target
+            gl.activeTexture(gl.TEXTURE2)
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, cubemapIdx == 4)
+            gl.texImage2D(image.textarget, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image)
+
+            g_tex_ready++
+        }
+        image.src = cubemap[i]
+    }
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 2)
+
+    while (g_tex_ready < 6) {
+        await new Promise(r => setTimeout(r, 100))
+    }
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP)
+    gl.uniform1i(gl.getUniformLocation(program, "texMap"), 3);
+
+    g_tex_ready = 0
 }
