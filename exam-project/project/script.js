@@ -52,6 +52,8 @@ var diffuseRange = [0.5, 0.0, 1.0]
 var specularRange = [1.0, 0.0, 1.0]
 var shineRange = [2.0, 0.0000000000001, 1000.0]
 
+var lastTimestamp = null
+
 var iBuffer
 var vBuffer
 var nBuffer
@@ -230,19 +232,30 @@ window.onload = async function init() {
 }
 
 const identityMatrix = mat4()
+var timeDiff
 
-function render() {
+function render(timestamp) {
+
+    if (timestamp === undefined) {
+        timeDiff = 1.0
+    } else if (lastTimestamp === null) {
+        lastTimestamp = timestamp
+        timeDiff = 1.0
+    } else {
+        timeDiff = (timestamp - lastTimestamp) / 40
+        lastTimestamp = timestamp
+    }
 
     if (animateLight) {
-        yRotationLight += 0.02
+        yRotationLight += 0.02 * timeDiff
         yRotationLight %= 2 * Math.PI
     }
     if (animateObject) {
-        yRotationObject -= 0.03
+        yRotationObject -= 0.03 * timeDiff
         yRotationObject %= 360.0
     }
     if (animateWaves) {
-        waveTime += 0.03
+        waveTime += 0.03 * timeDiff
         waveTime %= 200.0 * Math.PI
     }
 
